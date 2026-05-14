@@ -27,13 +27,18 @@ DENO_DIR = "/home/runner/${REPL_SLUG}/.deno"
 channel = "stable-24_05"
 
 [deployment]
-run = ["deno", "run", "--lock=lock.json", "--allow-all index.ts"]
-deploymentTarget = "cloudrun"
+run = ["npm", "run", "start"]
+deploymentTarget = "autoscale"
 ignorePorts = false
+build = ["npm", "run", "build"]
 
 [[ports]]
 localPort = 3000
 externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
 
 [[ports]]
 localPort = 5000

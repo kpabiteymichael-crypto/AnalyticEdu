@@ -18,7 +18,7 @@ router.get('/class-performance', authenticate, authorize('admin', 'teacher'), as
         xp: students.xp,
         level: students.level,
         streakDays: students.streakDays,
-        avgScore: sql<number>`COALESCE(ROUND(AVG(scores.score / scores.max_score * 100), 1), 0)`,
+        avgScore: sql<number>`COALESCE(ROUND(CAST(AVG(scores.score / scores.max_score * 100) AS numeric), 1), 0)`,
         totalAssessments: sql<number>`COUNT(scores.id)`,
         badgeCount: sql<number>`(SELECT COUNT(*) FROM student_badges WHERE student_id = students.id)`,
       })
@@ -60,7 +60,7 @@ router.get('/student/:studentId/full', authenticate, async (req, res) => {
 
     const subjectSummary = await db.select({
       subject: scores.subject,
-      avgScore: sql<number>`ROUND(AVG(score / max_score * 100), 1)`,
+      avgScore: sql<number>`ROUND(CAST(AVG(score / max_score * 100) AS numeric), 1)`,
       highest: sql<number>`MAX(score / max_score * 100)`,
       lowest: sql<number>`MIN(score / max_score * 100)`,
       count: sql<number>`COUNT(*)`,
@@ -76,7 +76,7 @@ router.get('/student/:studentId/full', authenticate, async (req, res) => {
     const monthlyProgress = await db.select({
       month: sql<string>`TO_CHAR(recorded_at, 'Mon YYYY')`,
       monthOrder: sql<number>`EXTRACT(YEAR FROM recorded_at) * 12 + EXTRACT(MONTH FROM recorded_at)`,
-      avgScore: sql<number>`ROUND(AVG(score / max_score * 100), 1)`,
+      avgScore: sql<number>`ROUND(CAST(AVG(score / max_score * 100) AS numeric), 1)`,
       assessments: sql<number>`COUNT(*)`,
     }).from(scores).where(eq(scores.studentId, studentId))
       .groupBy(sql`TO_CHAR(recorded_at, 'Mon YYYY')`, sql`EXTRACT(YEAR FROM recorded_at) * 12 + EXTRACT(MONTH FROM recorded_at)`)
@@ -99,7 +99,7 @@ router.get('/export-summary', authenticate, authorize('admin', 'teacher'), async
       grade: students.grade,
       xp: students.xp,
       level: students.level,
-      avgScore: sql<number>`COALESCE(ROUND(AVG(scores.score / scores.max_score * 100), 1), 0)`,
+      avgScore: sql<number>`COALESCE(ROUND(CAST(AVG(scores.score / scores.max_score * 100) AS numeric), 1), 0)`,
     })
       .from(students)
       .innerJoin(users, eq(students.userId, users.id))

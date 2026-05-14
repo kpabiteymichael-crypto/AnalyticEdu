@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/index';
-import { students, scores, studentBadges, badges, rankings } from '../db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { students, scores, studentBadges, badges } from '../db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
@@ -25,20 +25,20 @@ router.get('/overview', authenticate, authorize('admin', 'teacher'), async (_req
 
     const subjectBreakdown = await db.select({
       subject: scores.subject,
-      avgScore: sql<number>`ROUND(AVG(score / max_score * 100), 1)`,
+      avgScore: sql<number>`ROUND(CAST(AVG(score / max_score * 100) AS numeric), 1)`,
       assessmentCount: sql<number>`COUNT(*)`,
     }).from(scores).groupBy(scores.subject).orderBy(sql`AVG(score / max_score * 100) DESC`);
 
     const gradeDistribution = await db.select({
       grade: students.grade,
       count: sql<number>`COUNT(*)`,
-      avgXp: sql<number>`ROUND(AVG(xp), 0)`,
+      avgXp: sql<number>`ROUND(CAST(AVG(xp) AS numeric), 0)`,
     }).from(students).groupBy(students.grade).orderBy(students.grade);
 
     const monthlyTrend = await db.select({
       month: sql<string>`TO_CHAR(recorded_at, 'Mon')`,
       monthOrder: sql<number>`EXTRACT(MONTH FROM recorded_at)`,
-      avgScore: sql<number>`ROUND(AVG(score / max_score * 100), 1)`,
+      avgScore: sql<number>`ROUND(CAST(AVG(score / max_score * 100) AS numeric), 1)`,
       count: sql<number>`COUNT(*)`,
     }).from(scores)
       .groupBy(sql`TO_CHAR(recorded_at, 'Mon')`, sql`EXTRACT(MONTH FROM recorded_at)`)

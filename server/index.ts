@@ -24,12 +24,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.API_PORT || 3001;
+const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 : 3001);
 
 // Security middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? false : true,
+  origin: true,
   credentials: true,
 }));
 
@@ -64,9 +64,10 @@ app.get('/api/health', (_req, res) => {
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist/client')));
+  const distPath = path.join(process.cwd(), 'dist/client');
+  app.use(express.static(distPath));
   app.get('*', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/client/index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 

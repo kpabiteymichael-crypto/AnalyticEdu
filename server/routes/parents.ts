@@ -93,7 +93,7 @@ router.get('/child/:studentId/report', authenticate, authorize('parent', 'admin'
 
     const subjectAvgs = await db.select({
       subject: scores.subject,
-      avgScore: sql<number>`ROUND(AVG(score / max_score * 100), 1)`,
+      avgScore: sql<number>`ROUND(CAST(AVG(score / max_score * 100) AS numeric), 1)`,
       count: sql<number>`COUNT(*)`,
     }).from(scores).where(eq(scores.studentId, studentId)).groupBy(scores.subject);
 
