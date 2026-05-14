@@ -5,7 +5,7 @@ import { notificationsApi } from '../lib/api';
 import {
   LayoutDashboard, Users, BarChart3, Trophy, Brain,
   FileText, LogOut, Bell, GraduationCap, Star, Menu, X,
-  ClipboardList, Users2, ChevronRight
+  ClipboardList, Users2, ChevronRight, Settings
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Leaderboard', to: '/leaderboard', icon: <Trophy size={18} />, roles: ['admin', 'teacher', 'student'] },
   { label: 'Badges', to: '/badges', icon: <Star size={18} />, roles: ['admin', 'teacher', 'student'] },
   { label: 'Parent Portal', to: '/parent-portal', icon: <Users2 size={18} />, roles: ['parent', 'admin'] },
+  { label: 'Settings', to: '/settings', icon: <Settings size={18} />, roles: ['admin', 'teacher'] },
 ];
 
 export default function Layout() {
@@ -77,7 +78,7 @@ export default function Layout() {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-3">Navigation</div>
-        {userNav.map(item => (
+        {userNav.filter(item => item.to !== '/settings').map(item => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -94,6 +95,27 @@ export default function Layout() {
             <ChevronRight size={14} className="ml-auto opacity-0 group-hover:opacity-50 transition-opacity" />
           </NavLink>
         ))}
+
+        {/* Settings at the bottom of nav, separated */}
+        {userNav.find(item => item.to === '/settings') && (
+          <>
+            <div className="border-t border-slate-100 my-3" />
+            <NavLink
+              to="/settings"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => clsx(
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
+                isActive
+                  ? 'bg-primary-600 text-white shadow-md shadow-primary-200'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              )}
+            >
+              <Settings size={18} />
+              <span>Settings</span>
+              <ChevronRight size={14} className="ml-auto opacity-0 group-hover:opacity-50 transition-opacity" />
+            </NavLink>
+          </>
+        )}
       </nav>
 
       {/* Logout */}

@@ -167,5 +167,13 @@ export async function runMigrations() {
     );
   `);
 
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   console.log('Migrations completed successfully!');
 }

@@ -3,7 +3,8 @@ import { db } from '../db/index';
 import { scores, students, activityLogs, badges, studentBadges } from '../db/schema';
 import { eq, desc, sql, and } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
-import { calculateScoreXP, getLevel } from '../lib/xp';
+import { getLevel } from '../lib/xp';
+import { getSettingJson, DEFAULT_XP_REWARDS, DEFAULT_LEVEL_THRESHOLDS, calculateScoreXPFromRewards, getLevelFromThresholds } from './settings';
 import { z } from 'zod';
 
 const router = Router();
@@ -32,10 +33,14 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req: AuthRe
       recordedBy: req.user!.id,
     }).returning();
 
-    // Award XP
-    const xpEarned = calculateScoreXP(data.score, data.maxScore);
+    // Award XP using current settings
+    const [xpRewards, levelThresholds] = await Promise.all([
+      getSettingJson('xp_rewards', DEFAULT_XP_REWARDS),
+      getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
+    ]);
+    const xpEarned = calculateScoreXPFromRewards(data.score, data.maxScore, xpRewards);
     const newXp = student.xp + xpEarned;
-    const newLevel = getLevel(newXp);
+    const newLevel = getLevelFromThresholds(newXp, levelThresholds);
 
     await db.update(students)
       .set({ xp: newXp, level: newLevel, lastActiveAt: new Date() })
@@ -71,6 +76,33 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req: AuthRe
   }
 });
 
+// DELETE /api/scores/:id - Delete a score (with XP reversal)
+router.delete('/:id', authenticate, authorize('admin', 'teacher'), async (_req, res) => {
+  try {
+    const scoreId = parseInt(_req.params.id);
+    const [score] = await db.select().from(scores).where(eq(scores.id, scoreId)).limit(1);
+    if (!score) return res.status(404).json({ error: 'Score not found' });
+
+    const [student] = await db.select().from(students).where(eq(students.id, score.studentId)).limit(1);
+    if (student) {
+      const [xpRewards, levelThresholds] = await Promise.all([
+        getSettingJson('xp_rewards', DEFAULT_XP_REWARDS),
+        getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
+      ]);
+      const xpToReverse = calculateScoreXPFromRewards(score.score, score.maxScore, xpRewards);
+      const newXp = Math.max(0, student.xp - xpToReverse);
+      const newLevel = getLevelFromThresholds(newXp, levelThresholds);
+      await db.update(students).set({ xp: newXp, level: newLevel }).where(eq(students.id, student.id));
+    }
+
+    await db.delete(scores).where(eq(scores.id, scoreId));
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to delete score' });
+  }
+});
+
 // GET /api/scores/student/:studentId
 router.get('/student/:studentId', authenticate, async (req, res) => {
   try {
@@ -84,7 +116,7 @@ router.get('/student/:studentId', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/scores/student/:studentId/trends - Performance over time by subject
+// GET /api/scores/student/:studentId/trends
 router.get('/student/:studentId/trends', authenticate, async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);

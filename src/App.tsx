@@ -14,6 +14,7 @@ import Predictions from './pages/Predictions';
 import ParentPortal from './pages/ParentPortal';
 import StudentDetail from './pages/StudentDetail';
 import Badges from './pages/Badges';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -85,6 +86,11 @@ export default function App() {
             <Route path="reports" element={
               <ProtectedRoute roles={['admin', 'teacher']}>
                 <Reports />
+              </ProtectedRoute>
+            } />
+            <Route path="settings" element={
+              <ProtectedRoute roles={['admin', 'teacher']}>
+                <Settings />
               </ProtectedRoute>
             } />
             <Route path="leaderboard" element={<Leaderboard />} />

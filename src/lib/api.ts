@@ -7,14 +7,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor — inject token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('edu_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Response interceptor — handle 401
 api.interceptors.response.use(
   (r) => r,
   (err) => {
@@ -42,6 +40,11 @@ export const studentsApi = {
   list: () => api.get('/students').then(r => r.data),
   me: () => api.get('/students/me').then(r => r.data),
   get: (id: number) => api.get(`/students/${id}`).then(r => r.data),
+  create: (data: { name: string; email: string; password: string; grade: number; classId?: number }) =>
+    api.post('/students', data).then(r => r.data),
+  update: (id: number, data: { name?: string; grade?: number; classId?: number | null; xp?: number; streakDays?: number }) =>
+    api.put(`/students/${id}`, data).then(r => r.data),
+  delete: (id: number) => api.delete(`/students/${id}`).then(r => r.data),
   activity: (id: number) => api.get(`/students/${id}/activity`).then(r => r.data),
   overview: () => api.get('/students/summary/overview').then(r => r.data),
 };
@@ -49,6 +52,7 @@ export const studentsApi = {
 // ─── Scores ───────────────────────────────────────────────
 export const scoresApi = {
   create: (data: object) => api.post('/scores', data).then(r => r.data),
+  delete: (id: number) => api.delete(`/scores/${id}`).then(r => r.data),
   byStudent: (id: number) => api.get(`/scores/student/${id}`).then(r => r.data),
   trends: (id: number) => api.get(`/scores/student/${id}/trends`).then(r => r.data),
   subjectBreakdown: () => api.get('/scores/analytics/subject-breakdown').then(r => r.data),
@@ -103,6 +107,17 @@ export const notificationsApi = {
   list: () => api.get('/notifications').then(r => r.data),
   markRead: (id: number) => api.patch(`/notifications/${id}/read`).then(r => r.data),
   markAllRead: () => api.patch('/notifications/read-all').then(r => r.data),
+};
+
+// ─── Settings ─────────────────────────────────────────────
+export const settingsApi = {
+  get: () => api.get('/settings').then(r => r.data),
+  updateLevelThresholds: (thresholds: number[]) =>
+    api.put('/settings/level-thresholds', { thresholds }).then(r => r.data),
+  updateXpRewards: (rewards: { minPct: number; xp: number }[]) =>
+    api.put('/settings/xp-rewards', { rewards }).then(r => r.data),
+  updateSubjectLabels: (labels: Record<string, string>) =>
+    api.put('/settings/subject-labels', { labels }).then(r => r.data),
 };
 
 export default api;

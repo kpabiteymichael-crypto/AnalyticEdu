@@ -19,6 +19,7 @@ import predictionRoutes from './routes/predictions';
 import parentRoutes from './routes/parents';
 import reportRoutes from './routes/reports';
 import notificationRoutes from './routes/notifications';
+import settingsRoutes from './routes/settings';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,6 +57,7 @@ app.use('/api/predictions', predictionRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
