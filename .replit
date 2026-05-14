@@ -10,6 +10,7 @@ run = [
 hidden = [".deno"]
 
 entrypoint = "index.ts"
+modules = ["nodejs-20"]
 
 [languages.deno]
 pattern = "**/*.{ts,js}"
@@ -34,5 +35,33 @@ ignorePorts = false
 localPort = 3000
 externalPort = 80
 
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
 [agent]
 expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx concurrently \"npx tsx server/index.ts\" \"npx vite --port 5000\""
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"

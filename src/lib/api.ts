@@ -1,0 +1,108 @@
+import axios from 'axios';
+
+const BASE_URL = '/api';
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Request interceptor — inject token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('edu_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Response interceptor — handle 401
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('edu_token');
+      localStorage.removeItem('edu_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(err);
+  }
+);
+
+// ─── Auth ─────────────────────────────────────────────────
+export const authApi = {
+  login: (email: string, password: string) =>
+    api.post('/auth/login', { email, password }).then(r => r.data),
+  register: (data: { name: string; email: string; password: string; role?: string; grade?: number }) =>
+    api.post('/auth/register', data).then(r => r.data),
+  me: () => api.get('/auth/me').then(r => r.data),
+  classes: () => api.get('/auth/classes').then(r => r.data),
+};
+
+// ─── Students ─────────────────────────────────────────────
+export const studentsApi = {
+  list: () => api.get('/students').then(r => r.data),
+  me: () => api.get('/students/me').then(r => r.data),
+  get: (id: number) => api.get(`/students/${id}`).then(r => r.data),
+  activity: (id: number) => api.get(`/students/${id}/activity`).then(r => r.data),
+  overview: () => api.get('/students/summary/overview').then(r => r.data),
+};
+
+// ─── Scores ───────────────────────────────────────────────
+export const scoresApi = {
+  create: (data: object) => api.post('/scores', data).then(r => r.data),
+  byStudent: (id: number) => api.get(`/scores/student/${id}`).then(r => r.data),
+  trends: (id: number) => api.get(`/scores/student/${id}/trends`).then(r => r.data),
+  subjectBreakdown: () => api.get('/scores/analytics/subject-breakdown').then(r => r.data),
+  monthlyTrend: () => api.get('/scores/analytics/monthly-trend').then(r => r.data),
+};
+
+// ─── Rankings ─────────────────────────────────────────────
+export const rankingsApi = {
+  leaderboard: () => api.get('/rankings/leaderboard').then(r => r.data),
+  byStudent: (id: number) => api.get(`/rankings/student/${id}`).then(r => r.data),
+};
+
+// ─── Gamification ─────────────────────────────────────────
+export const gamificationApi = {
+  badges: () => api.get('/gamification/badges').then(r => r.data),
+  studentBadges: (id: number) => api.get(`/gamification/badges/student/${id}`).then(r => r.data),
+  awardBadge: (studentId: number, badgeId: number) =>
+    api.post('/gamification/badges/award', { studentId, badgeId }).then(r => r.data),
+  activity: (id: number) => api.get(`/gamification/activity/${id}`).then(r => r.data),
+};
+
+// ─── Analytics ────────────────────────────────────────────
+export const analyticsApi = {
+  overview: () => api.get('/analytics/overview').then(r => r.data),
+  distribution: () => api.get('/analytics/performance-distribution').then(r => r.data),
+};
+
+// ─── Predictions ──────────────────────────────────────────
+export const predictionsApi = {
+  generate: (studentId: number) => api.post(`/predictions/generate/${studentId}`).then(r => r.data),
+  byStudent: (studentId: number) => api.get(`/predictions/student/${studentId}`).then(r => r.data),
+  atRisk: () => api.get('/predictions/at-risk').then(r => r.data),
+};
+
+// ─── Parents ──────────────────────────────────────────────
+export const parentsApi = {
+  link: (studentCode: string, relationship?: string) =>
+    api.post('/parents/link', { studentCode, relationship }).then(r => r.data),
+  myChildren: () => api.get('/parents/my-children').then(r => r.data),
+  childReport: (studentId: number) => api.get(`/parents/child/${studentId}/report`).then(r => r.data),
+};
+
+// ─── Reports ──────────────────────────────────────────────
+export const reportsApi = {
+  classPerformance: () => api.get('/reports/class-performance').then(r => r.data),
+  studentFull: (id: number) => api.get(`/reports/student/${id}/full`).then(r => r.data),
+  exportCSV: () => window.open('/api/reports/export-summary', '_blank'),
+};
+
+// ─── Notifications ────────────────────────────────────────
+export const notificationsApi = {
+  list: () => api.get('/notifications').then(r => r.data),
+  markRead: (id: number) => api.patch(`/notifications/${id}/read`).then(r => r.data),
+  markAllRead: () => api.patch('/notifications/read-all').then(r => r.data),
+};
+
+export default api;
