@@ -67,6 +67,37 @@ router.post('/badges/award', authenticate, authorize('admin', 'teacher'), async 
   }
 });
 
+// PUT /api/gamification/badges/:id/xp — update XP reward for one badge
+router.put('/badges/:id/xp', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const badgeId = parseInt(req.params.id);
+    const { xpReward } = z.object({ xpReward: z.number().int().min(0).max(10000) }).parse(req.body);
+    const [updated] = await db.update(badges).set({ xpReward }).where(eq(badges.id, badgeId)).returning();
+    if (!updated) return res.status(404).json({ error: 'Badge not found' });
+    return res.json(updated);
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to update badge XP' });
+  }
+});
+
+// PUT /api/gamification/badges/xp/bulk — update XP for all badges at once
+router.put('/badges/xp/bulk', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const { updates } = z.object({
+      updates: z.array(z.object({ id: z.number().int(), xpReward: z.number().int().min(0).max(10000) })),
+    }).parse(req.body);
+    for (const { id, xpReward } of updates) {
+      await db.update(badges).set({ xpReward }).where(eq(badges.id, id));
+    }
+    const updated = await db.select().from(badges).orderBy(badges.category);
+    return res.json(updated);
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to bulk update badge XP' });
+  }
+});
+
 // GET /api/gamification/activity/:studentId
 router.get('/activity/:studentId', authenticate, async (req, res) => {
   try {

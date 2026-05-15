@@ -79,6 +79,8 @@ export const gamificationApi = {
   awardBadge: (studentId: number, badgeId: number) =>
     api.post('/gamification/badges/award', { studentId, badgeId }).then(r => r.data),
   activity: (id: number) => api.get(`/gamification/activity/${id}`).then(r => r.data),
+  updateBadgeXpBulk: (updates: { id: number; xpReward: number }[]) =>
+    api.put('/gamification/badges/xp/bulk', { updates }).then(r => r.data),
 };
 
 // ─── Analytics ────────────────────────────────────────────

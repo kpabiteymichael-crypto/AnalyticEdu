@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { settingsApi, scoresApi, teamsApi } from '../lib/api';
+import { settingsApi, scoresApi, teamsApi, gamificationApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target, Trash2, RotateCw, Users, Plus, X, ShieldAlert } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target, Trash2, RotateCw, Users, Plus, X, ShieldAlert, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
@@ -35,7 +35,7 @@ type Toast = { type: 'success' | 'error'; message: string };
 export default function Settings() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks' | 'reset' | 'demo'>('levels');
+  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks' | 'badgexp' | 'reset' | 'demo'>('levels');
   const [toast, setToast] = useState<Toast | null>(null);
 
   const [levelThresholds, setLevelThresholds] = useState<number[]>(DEFAULT_LEVEL_THRESHOLDS);
@@ -58,17 +58,23 @@ export default function Settings() {
   const [demoAccounts, setDemoAccounts] = useState<any[]>([]);
   const [savingDemo, setSavingDemo] = useState(false);
 
+  // Badge XP state
+  const [badgeXpList, setBadgeXpList] = useState<any[]>([]);
+  const [savingBadgeXp, setSavingBadgeXp] = useState(false);
+
   useEffect(() => {
     Promise.all([
       settingsApi.get(),
       teamsApi.list(),
       settingsApi.getDemoAccounts().catch(() => []),
-    ]).then(([data, cls, demo]) => {
+      gamificationApi.badges().catch(() => []),
+    ]).then(([data, cls, demo, bdgs]) => {
       setLevelThresholds(data.levelThresholds ?? DEFAULT_LEVEL_THRESHOLDS);
       setXpRewards(data.xpRewards ?? DEFAULT_XP_REWARDS);
       setSubjectLabels(data.subjectLabels ?? DEFAULT_SUBJECT_LABELS);
       setSubjectMaxMarks(data.subjectMaxMarks ?? DEFAULT_SUBJECT_MAX_MARKS);
       setClasses(cls);
+      setBadgeXpList(bdgs);
       setDemoAccounts(demo.length ? demo : [
         { label: 'Admin', email: 'admin@eduanalytics.com', password: 'admin123', color: 'bg-purple-100 text-purple-700 border-purple-200' },
         { label: 'Teacher', email: 'j.rodriguez@eduanalytics.com', password: 'teacher123', color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -141,6 +147,18 @@ export default function Settings() {
     } finally { setResetting(null); }
   };
 
+  const handleSaveBadgeXp = async () => {
+    setSavingBadgeXp(true);
+    try {
+      const updates = badgeXpList.map(b => ({ id: b.id, xpReward: b.xpReward }));
+      const updated = await gamificationApi.updateBadgeXpBulk(updates);
+      setBadgeXpList(updated);
+      showToast('success', 'Badge XP rewards saved successfully');
+    } catch {
+      showToast('error', 'Failed to save badge XP rewards');
+    } finally { setSavingBadgeXp(false); }
+  };
+
   const handleSaveDemo = async () => {
     setSavingDemo(true);
     try {
@@ -170,6 +188,7 @@ export default function Settings() {
     { id: 'xp' as const, label: 'Score XP Rewards', icon: <Zap size={16} /> },
     { id: 'subjects' as const, label: 'Subject Labels', icon: <BookOpen size={16} /> },
     { id: 'maxmarks' as const, label: 'Max Marks', icon: <Target size={16} /> },
+    { id: 'badgexp' as const, label: 'Badge XP', icon: <Award size={16} /> },
     { id: 'reset' as const, label: 'Reset Data', icon: <RotateCw size={16} /> },
     ...(user?.role === 'admin' ? [{ id: 'demo' as const, label: 'Demo Accounts', icon: <Users size={16} /> }] : []),
   ];
@@ -459,6 +478,63 @@ export default function Settings() {
                 <strong>How it works:</strong> When a student records a new score, the system checks their current overall average. If they're in a badge tier, the bonus percentage is automatically added on top of their base XP reward. For example, a Diamond student scoring 95/100 earns 100 base XP × 1.10 = 110 XP.
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Badge XP Rewards */}
+      {activeTab === 'badgexp' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Badge XP Rewards</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Set how many XP points each achievement badge grants when earned</p>
+            </div>
+            <button onClick={handleSaveBadgeXp} disabled={savingBadgeXp} className="btn-primary flex items-center gap-2 text-sm">
+              <Save size={14} /> {savingBadgeXp ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+
+          {badgeXpList.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">No badges found</p>
+          ) : (
+            <div className="space-y-3">
+              {badgeXpList.map(badge => (
+                <div key={badge.id} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-primary-200 hover:bg-primary-50/30 transition-all">
+                  <div className="text-2xl w-10 text-center flex-shrink-0">{badge.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-slate-900 text-sm">{badge.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{badge.description}</div>
+                    <div className="mt-1">
+                      <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 capitalize">{badge.category}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">XP Reward</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        max={10000}
+                        value={badge.xpReward}
+                        onChange={e => {
+                          const val = parseInt(e.target.value) || 0;
+                          setBadgeXpList(prev => prev.map(b => b.id === badge.id ? { ...b, xpReward: val } : b));
+                        }}
+                        className="input w-24 text-right font-bold text-primary-700 pr-8"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-primary-400 pointer-events-none">XP</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-5 p-3 bg-blue-50 rounded-xl">
+            <p className="text-xs text-blue-700">
+              <strong>Note:</strong> Changing XP rewards only affects badges earned from this point forward — previously awarded badges are not retroactively adjusted.
+            </p>
           </div>
         </div>
       )}
