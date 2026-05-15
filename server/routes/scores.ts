@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/index';
-import { scores, students, activityLogs, badges, studentBadges } from '../db/schema';
-import { eq, desc, sql, and } from 'drizzle-orm';
+import { scores, students, activityLogs, badges, studentBadges, users, classes } from '../db/schema';
+import { eq, desc, sql, and, inArray } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { getLevel } from '../lib/xp';
 import { getSettingJson, DEFAULT_XP_REWARDS, DEFAULT_LEVEL_THRESHOLDS, calculateScoreXPFromRewards, getLevelFromThresholds, getRankBadgeBonusMultiplier } from './settings';
@@ -185,6 +185,92 @@ router.get('/analytics/monthly-trend', authenticate, authorize('admin', 'teacher
     return res.json(result);
   } catch {
     return res.status(500).json({ error: 'Failed to fetch monthly trend' });
+  }
+});
+
+// ─── Reset Endpoints ──────────────────────────────────────
+
+// POST /api/scores/reset/student/:id  — delete all scores + reset XP/level for one student
+router.post('/reset/student/:id', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const [student] = await db.select().from(students).where(eq(students.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const [levelThresholds] = await Promise.all([
+      getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
+    ]);
+
+    await db.delete(scores).where(eq(scores.studentId, studentId));
+    await db.update(students).set({ xp: 0, level: getLevelFromThresholds(0, levelThresholds) }).where(eq(students.id, studentId));
+    await db.insert(activityLogs).values({
+      studentId,
+      activityType: 'reset',
+      description: 'All scores and XP reset to zero',
+      xpEarned: 0,
+    });
+
+    return res.json({ success: true, message: 'Student scores and XP reset to zero' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to reset student' });
+  }
+});
+
+// POST /api/scores/reset/subject/:subject — delete all scores for a subject (across all students), recalc XP
+router.post('/reset/subject/:subject', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const subject = req.params.subject;
+    const levelThresholds = await getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS);
+    const xpRewards = await getSettingJson('xp_rewards', DEFAULT_XP_REWARDS);
+
+    // Get all students who have scores for this subject
+    const affected = await db.selectDistinct({ studentId: scores.studentId }).from(scores).where(eq(scores.subject, subject as any));
+
+    // Delete all scores for the subject
+    await db.delete(scores).where(eq(scores.subject, subject as any));
+
+    // Recalculate XP for each affected student from remaining scores
+    for (const { studentId } of affected) {
+      const remaining = await db.select().from(scores).where(eq(scores.studentId, studentId));
+      const newXp = remaining.reduce((sum, s) => sum + calculateScoreXPFromRewards(s.score, s.maxScore, xpRewards), 0);
+      const newLevel = getLevelFromThresholds(newXp, levelThresholds);
+      await db.update(students).set({ xp: newXp, level: newLevel }).where(eq(students.id, studentId));
+    }
+
+    return res.json({ success: true, message: `All ${subject} scores deleted, XP recalculated for ${affected.length} students` });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to reset subject scores' });
+  }
+});
+
+// POST /api/scores/reset/class/:classId — delete all scores for all students in a class, reset XP
+router.post('/reset/class/:classId', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const classId = parseInt(req.params.classId);
+    const levelThresholds = await getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS);
+
+    const classStudents = await db.select({ id: students.id }).from(students).where(eq(students.classId, classId));
+    if (classStudents.length === 0) return res.json({ success: true, message: 'No students in class', count: 0 });
+
+    const ids = classStudents.map(s => s.id);
+    await db.delete(scores).where(inArray(scores.studentId, ids));
+    await db.update(students).set({ xp: 0, level: getLevelFromThresholds(0, levelThresholds) }).where(inArray(students.id, ids));
+
+    for (const { id } of classStudents) {
+      await db.insert(activityLogs).values({
+        studentId: id,
+        activityType: 'reset',
+        description: 'Class bulk reset — all scores and XP reset to zero',
+        xpEarned: 0,
+      });
+    }
+
+    return res.json({ success: true, message: `Reset ${ids.length} students in class`, count: ids.length });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to reset class' });
   }
 });
 

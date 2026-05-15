@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { settingsApi } from '../lib/api';
+import { settingsApi, scoresApi, teamsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target, Trash2, RotateCw, Users, Plus, X, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
 
@@ -33,7 +34,8 @@ type Toast = { type: 'success' | 'error'; message: string };
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks'>('levels');
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks' | 'reset' | 'demo'>('levels');
   const [toast, setToast] = useState<Toast | null>(null);
 
   const [levelThresholds, setLevelThresholds] = useState<number[]>(DEFAULT_LEVEL_THRESHOLDS);
@@ -47,12 +49,32 @@ export default function Settings() {
   const [savingSubjects, setSavingSubjects] = useState(false);
   const [savingMaxMarks, setSavingMaxMarks] = useState(false);
 
+  // Reset state
+  const [classes, setClasses] = useState<any[]>([]);
+  const [resetting, setResetting] = useState<string | null>(null);
+  const [resetConfirm, setResetConfirm] = useState<{ type: string; label: string; action: () => Promise<void> } | null>(null);
+
+  // Demo accounts state
+  const [demoAccounts, setDemoAccounts] = useState<any[]>([]);
+  const [savingDemo, setSavingDemo] = useState(false);
+
   useEffect(() => {
-    settingsApi.get().then(data => {
+    Promise.all([
+      settingsApi.get(),
+      teamsApi.list(),
+      settingsApi.getDemoAccounts().catch(() => []),
+    ]).then(([data, cls, demo]) => {
       setLevelThresholds(data.levelThresholds ?? DEFAULT_LEVEL_THRESHOLDS);
       setXpRewards(data.xpRewards ?? DEFAULT_XP_REWARDS);
       setSubjectLabels(data.subjectLabels ?? DEFAULT_SUBJECT_LABELS);
       setSubjectMaxMarks(data.subjectMaxMarks ?? DEFAULT_SUBJECT_MAX_MARKS);
+      setClasses(cls);
+      setDemoAccounts(demo.length ? demo : [
+        { label: 'Admin', email: 'admin@eduanalytics.com', password: 'admin123', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+        { label: 'Teacher', email: 'j.rodriguez@eduanalytics.com', password: 'teacher123', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+        { label: 'Student', email: 'student@eduanalytics.com', password: 'student123', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+        { label: 'Parent', email: 'parent@eduanalytics.com', password: 'parent123', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+      ]);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -103,6 +125,32 @@ export default function Settings() {
 
   const totalMaxMarks = Object.values(subjectMaxMarks).reduce((a, b) => a + b, 0);
 
+  const doReset = async (type: string, label: string, action: () => Promise<void>) => {
+    setResetConfirm({ type, label, action });
+  };
+
+  const confirmReset = async () => {
+    if (!resetConfirm) return;
+    setResetting(resetConfirm.type);
+    setResetConfirm(null);
+    try {
+      await resetConfirm.action();
+      showToast('success', `Reset complete: ${resetConfirm.label}`);
+    } catch {
+      showToast('error', `Failed to reset: ${resetConfirm.label}`);
+    } finally { setResetting(null); }
+  };
+
+  const handleSaveDemo = async () => {
+    setSavingDemo(true);
+    try {
+      await settingsApi.updateDemoAccounts(demoAccounts);
+      showToast('success', 'Demo accounts updated — changes appear on next login page load');
+    } catch {
+      showToast('error', 'Failed to save demo accounts');
+    } finally { setSavingDemo(false); }
+  };
+
   const updateThreshold = (index: number, value: string) => {
     const num = parseInt(value);
     if (isNaN(num)) return;
@@ -122,6 +170,8 @@ export default function Settings() {
     { id: 'xp' as const, label: 'Score XP Rewards', icon: <Zap size={16} /> },
     { id: 'subjects' as const, label: 'Subject Labels', icon: <BookOpen size={16} /> },
     { id: 'maxmarks' as const, label: 'Max Marks', icon: <Target size={16} /> },
+    { id: 'reset' as const, label: 'Reset Data', icon: <RotateCw size={16} /> },
+    ...(user?.role === 'admin' ? [{ id: 'demo' as const, label: 'Demo Accounts', icon: <Users size={16} /> }] : []),
   ];
 
   return (
@@ -409,6 +459,170 @@ export default function Settings() {
                 <strong>How it works:</strong> When a student records a new score, the system checks their current overall average. If they're in a badge tier, the bonus percentage is automatically added on top of their base XP reward. For example, a Diamond student scoring 95/100 earns 100 base XP × 1.10 = 110 XP.
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Data */}
+      {activeTab === 'reset' && (
+        <div className="space-y-6">
+          {/* Reset confirm overlay */}
+          {resetConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setResetConfirm(null)} />
+              <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-fade-in p-6">
+                <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShieldAlert size={26} className="text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Confirm Reset</h3>
+                <p className="text-sm text-slate-600 text-center mb-1">You are about to permanently delete:</p>
+                <p className="font-bold text-red-700 text-center text-sm mb-5">{resetConfirm.label}</p>
+                <p className="text-xs text-slate-500 text-center mb-5">This action <strong>cannot be undone</strong>. All affected scores and XP will be wiped.</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setResetConfirm(null)} className="flex-1 btn-secondary">Cancel</button>
+                  <button onClick={confirmReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors">
+                    Yes, Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Per-student reset */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                <RotateCw size={18} className="text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Reset by Subject</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Delete all scores for one subject across every student and recalculate XP</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {SUBJECT_KEYS.map(sub => (
+                <button
+                  key={sub}
+                  disabled={!!resetting}
+                  onClick={() => doReset(
+                    `subject_${sub}`,
+                    `All ${sub} scores for every student`,
+                    () => scoresApi.resetSubject(sub)
+                  )}
+                  className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-50 text-sm font-semibold transition-all"
+                >
+                  <span className="uppercase">{sub}</span>
+                  {resetting === `subject_${sub}` ? (
+                    <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                  ) : <Trash2 size={13} />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Per-class reset */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <Users size={18} className="text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Reset by Class</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Delete all scores and reset XP to 0 for every student in a class</p>
+              </div>
+            </div>
+            {classes.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">No classes found</p>
+            ) : (
+              <div className="space-y-2">
+                {classes.map(cls => (
+                  <div key={cls.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-red-200 hover:bg-red-50/50 transition-all group">
+                    <div>
+                      <div className="font-semibold text-slate-900 text-sm">{cls.name}</div>
+                      <div className="text-xs text-slate-400">Grade {cls.grade} · {cls.studentCount ?? 0} students</div>
+                    </div>
+                    <button
+                      disabled={!!resetting}
+                      onClick={() => doReset(
+                        `class_${cls.id}`,
+                        `All scores + XP for ${cls.name} (${cls.studentCount ?? 0} students)`,
+                        () => scoresApi.resetClass(cls.id)
+                      )}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-600 hover:text-white border border-red-200 text-xs font-semibold transition-all disabled:opacity-50"
+                    >
+                      {resetting === `class_${cls.id}` ? (
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : <RotateCw size={12} />}
+                      Reset Class
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <p className="text-xs text-amber-800">
+              <strong>Note:</strong> To reset an individual student's scores and XP, go to the <strong>Students</strong> page → open the student → use the Reset button in their profile. Class and subject resets are permanent and cannot be reversed.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Demo Accounts (admin only) */}
+      {activeTab === 'demo' && user?.role === 'admin' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Login Page Demo Accounts</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Customize the quick-login shortcut buttons shown on the login page</p>
+            </div>
+            <button onClick={handleSaveDemo} disabled={savingDemo} className="btn-primary flex items-center gap-2 text-sm">
+              <Save size={14} /> {savingDemo ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {demoAccounts.map((acc, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1.5fr_1.5fr_auto] gap-3 items-center p-3 bg-slate-50 rounded-xl">
+                <input
+                  type="text" value={acc.label} placeholder="Label"
+                  onChange={e => setDemoAccounts(prev => prev.map((a, j) => j === i ? { ...a, label: e.target.value } : a))}
+                  className="input text-sm py-2"
+                />
+                <input
+                  type="email" value={acc.email} placeholder="Email"
+                  onChange={e => setDemoAccounts(prev => prev.map((a, j) => j === i ? { ...a, email: e.target.value } : a))}
+                  className="input text-sm py-2"
+                />
+                <input
+                  type="text" value={acc.password} placeholder="Password"
+                  onChange={e => setDemoAccounts(prev => prev.map((a, j) => j === i ? { ...a, password: e.target.value } : a))}
+                  className="input text-sm py-2"
+                />
+                <button
+                  onClick={() => setDemoAccounts(prev => prev.filter((_, j) => j !== i))}
+                  className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {demoAccounts.length < 8 && (
+            <button
+              onClick={() => setDemoAccounts(prev => [...prev, { label: 'New Account', email: '', password: '', color: 'bg-slate-100 text-slate-700 border-slate-200' }])}
+              className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-600 hover:border-primary-300 hover:text-primary-700 text-sm font-semibold transition-all w-full justify-center"
+            >
+              <Plus size={15} /> Add Demo Account
+            </button>
+          )}
+
+          <div className="mt-4 p-3 bg-blue-50 rounded-xl">
+            <p className="text-xs text-blue-700">
+              <strong>Note:</strong> These credentials are shown as shortcut buttons on the login page. Changing them here does <em>not</em> change the actual account passwords — use the profile editor (click your avatar) to change account passwords.
+            </p>
           </div>
         </div>
       )}

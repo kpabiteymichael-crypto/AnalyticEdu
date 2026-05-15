@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { studentsApi, authApi } from '../lib/api';
+import { studentsApi, authApi, scoresApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Users, Search, ChevronRight, Star, Flame, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle, ChevronDown, ChevronUp, LayoutGrid, Layers, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { Users, Search, ChevronRight, Star, Flame, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle, ChevronDown, ChevronUp, LayoutGrid, Layers, Upload, Download, FileSpreadsheet, RotateCw, ShieldAlert } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
@@ -98,6 +98,8 @@ export default function Students() {
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<any | null>(null);
   const [showDelete, setShowDelete] = useState<any | null>(null);
+  const [showResetStudent, setShowResetStudent] = useState<any | null>(null);
+  const [resettingStudent, setResettingStudent] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState({ name: '', grade: 7, classId: '' });
   const [saving, setSaving] = useState(false);
@@ -388,6 +390,13 @@ export default function Students() {
                     <Pencil size={14} />
                   </button>
                   <button
+                    onClick={e => { e.preventDefault(); setShowResetStudent(student); }}
+                    className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 text-slate-500 hover:text-orange-600 hover:border-orange-200 transition-colors"
+                    title="Reset scores & XP"
+                  >
+                    <RotateCw size={14} />
+                  </button>
+                  <button
                     onClick={e => { e.preventDefault(); setShowDelete(student); }}
                     className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 text-slate-500 hover:text-red-600 hover:border-red-200 transition-colors"
                     title="Delete student"
@@ -645,6 +654,42 @@ export default function Students() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reset Student Confirmation Modal */}
+      {showResetStudent && (
+        <Modal title="Reset Student Data" onClose={() => setShowResetStudent(null)}>
+          <div className="text-center">
+            <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert size={24} className="text-orange-600" />
+            </div>
+            <p className="text-slate-700 mb-1">Reset all scores and XP for</p>
+            <p className="font-bold text-slate-900 text-lg mb-2">"{showResetStudent.name}"?</p>
+            <p className="text-sm text-slate-500 mb-6">All their score records will be deleted and XP will be set to zero. Their account and badges are kept. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowResetStudent(null)} className="flex-1 btn-secondary">Cancel</button>
+              <button
+                disabled={resettingStudent}
+                onClick={async () => {
+                  setResettingStudent(true);
+                  try {
+                    await scoresApi.resetStudent(showResetStudent.id);
+                    setStudents(prev => prev.map(s => s.id === showResetStudent.id ? { ...s, xp: 0, level: 1 } : s));
+                    setShowResetStudent(null);
+                    showToast('success', `${showResetStudent.name}'s scores and XP have been reset`);
+                  } catch {
+                    showToast('error', 'Failed to reset student data');
+                  } finally {
+                    setResettingStudent(false);
+                  }
+                }}
+                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+              >
+                {resettingStudent ? 'Resetting...' : 'Reset Student'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}

@@ -2,11 +2,12 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useClass } from '../context/ClassContext';
 import { useState, useEffect } from 'react';
-import { notificationsApi } from '../lib/api';
+import { notificationsApi, authApi } from '../lib/api';
 import {
   LayoutDashboard, Users, BarChart3, Trophy, Brain,
   FileText, LogOut, Bell, GraduationCap, Star, Menu, X,
-  ClipboardList, Users2, ChevronRight, Settings, ChevronDown
+  ClipboardList, Users2, ChevronRight, Settings, ChevronDown,
+  UserCog, Eye, EyeOff, CheckCircle, AlertCircle
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -28,13 +29,57 @@ const navItems: NavItem[] = [
 ];
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { activeClass, classes: teacherClasses, setActiveClassId } = useClass();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [showClassPicker, setShowClassPicker] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileToast, setProfileToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showPw, setShowPw] = useState(false);
+
+  const openProfile = () => {
+    setProfileForm({ name: user?.name ?? '', email: user?.email ?? '', currentPassword: '', newPassword: '', confirmPassword: '' });
+    setProfileToast(null);
+    setShowProfile(true);
+  };
+
+  const handleProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword) {
+      setProfileToast({ type: 'error', message: 'New passwords do not match' });
+      return;
+    }
+    setProfileSaving(true);
+    setProfileToast(null);
+    try {
+      const payload: any = {};
+      if (profileForm.name.trim() !== user?.name) payload.name = profileForm.name.trim();
+      if (profileForm.email.trim() !== user?.email) payload.email = profileForm.email.trim();
+      if (profileForm.newPassword) {
+        payload.currentPassword = profileForm.currentPassword;
+        payload.newPassword = profileForm.newPassword;
+      } else if (payload.email) {
+        payload.currentPassword = profileForm.currentPassword;
+      }
+      if (Object.keys(payload).length === 0) {
+        setProfileToast({ type: 'error', message: 'No changes to save' });
+        return;
+      }
+      const result = await authApi.updateProfile(payload);
+      updateUser(result.user, result.token);
+      setProfileToast({ type: 'success', message: 'Profile updated successfully' });
+      setProfileForm(p => ({ ...p, currentPassword: '', newPassword: '', confirmPassword: '' }));
+    } catch (err: any) {
+      setProfileToast({ type: 'error', message: err.response?.data?.error ?? 'Failed to update profile' });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   useEffect(() => {
     notificationsApi.list().then(setNotifications).catch(() => {});
@@ -260,14 +305,17 @@ export default function Layout() {
             )}
           </div>
 
-          {/* User avatar + logout */}
+          {/* User avatar + profile + logout */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 grad-primary rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="hidden sm:block">
-              <div className="text-sm font-semibold text-slate-900">{user?.name}</div>
-            </div>
+            <button onClick={openProfile} className="flex items-center gap-2 hover:opacity-80 transition-opacity" title="Edit profile">
+              <div className="w-8 h-8 grad-primary rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden sm:block text-left">
+                <div className="text-sm font-semibold text-slate-900 leading-none">{user?.name}</div>
+                <div className="text-xs text-slate-400 mt-0.5 capitalize">{user?.role}</div>
+              </div>
+            </button>
             <button
               onClick={handleLogout}
               className="ml-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200 transition-all"
@@ -277,6 +325,84 @@ export default function Layout() {
               <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
+
+          {/* Profile Modal */}
+          {showProfile && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowProfile(false)} />
+              <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 grad-primary rounded-xl flex items-center justify-center shadow-md">
+                      <UserCog size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Edit Profile</h3>
+                      <p className="text-xs text-slate-400 capitalize">{user?.role} account</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowProfile(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+                    <X size={18} />
+                  </button>
+                </div>
+                <form onSubmit={handleProfileSave} className="p-6 space-y-4">
+                  {profileToast && (
+                    <div className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium ${profileToast.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                      {profileToast.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                      {profileToast.message}
+                    </div>
+                  )}
+                  <div>
+                    <label className="label">Display Name</label>
+                    <input type="text" value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))}
+                      className="input" required minLength={2} />
+                  </div>
+                  <div>
+                    <label className="label">Email Address</label>
+                    <input type="email" value={profileForm.email} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))}
+                      className="input" required />
+                  </div>
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Change Password</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="label">Current Password <span className="text-slate-400 font-normal">(required to change email or password)</span></label>
+                        <div className="relative">
+                          <input type={showPw ? 'text' : 'password'} value={profileForm.currentPassword}
+                            onChange={e => setProfileForm(p => ({ ...p, currentPassword: e.target.value }))}
+                            className="input pr-10" placeholder="Enter current password" autoComplete="current-password" />
+                          <button type="button" onClick={() => setShowPw(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label">New Password</label>
+                        <input type={showPw ? 'text' : 'password'} value={profileForm.newPassword}
+                          onChange={e => setProfileForm(p => ({ ...p, newPassword: e.target.value }))}
+                          className="input" placeholder="Leave blank to keep current" minLength={6} autoComplete="new-password" />
+                      </div>
+                      {profileForm.newPassword && (
+                        <div>
+                          <label className="label">Confirm New Password</label>
+                          <input type={showPw ? 'text' : 'password'} value={profileForm.confirmPassword}
+                            onChange={e => setProfileForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                            className="input" placeholder="Repeat new password" autoComplete="new-password" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setShowProfile(false)} className="flex-1 btn-secondary">Cancel</button>
+                    <button type="submit" disabled={profileSaving} className="flex-1 btn-primary">
+                      {profileSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Page Content */}

@@ -20,6 +20,13 @@ export const DEFAULT_XP_REWARDS = [
   { minPct: 0, xp: 5 },
 ];
 
+export const DEFAULT_DEMO_ACCOUNTS = [
+  { label: 'Admin', email: 'admin@eduanalytics.com', password: 'admin123', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { label: 'Teacher', email: 'j.rodriguez@eduanalytics.com', password: 'teacher123', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { label: 'Student', email: 'student@eduanalytics.com', password: 'student123', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  { label: 'Parent', email: 'parent@eduanalytics.com', password: 'parent123', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+];
+
 export const DEFAULT_SUBJECT_LABELS: Record<string, string> = {
   math: 'Mathematics',
   science: 'Science',
@@ -145,6 +152,35 @@ router.put('/subject-labels', authenticate, authorize('admin', 'teacher'), async
   } catch (err: any) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     return res.status(500).json({ error: 'Failed to update subject labels' });
+  }
+});
+
+// GET /api/settings/demo-accounts (public — needed on login page)
+router.get('/demo-accounts', async (_req, res) => {
+  try {
+    const accounts = await getSettingJson('demo_accounts', DEFAULT_DEMO_ACCOUNTS);
+    return res.json(accounts);
+  } catch {
+    return res.json(DEFAULT_DEMO_ACCOUNTS);
+  }
+});
+
+// PUT /api/settings/demo-accounts
+router.put('/demo-accounts', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { accounts } = z.object({
+      accounts: z.array(z.object({
+        label: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(1),
+        color: z.string(),
+      })).min(1).max(10),
+    }).parse(req.body);
+    await setSetting('demo_accounts', JSON.stringify(accounts));
+    return res.json({ success: true, accounts });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to update demo accounts' });
   }
 });
 

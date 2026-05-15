@@ -91,6 +91,49 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
+// PUT /api/auth/profile — update own name, email, password
+router.put('/profile', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const data = z.object({
+      name: z.string().min(2).optional(),
+      email: z.string().email().optional(),
+      currentPassword: z.string().optional(),
+      newPassword: z.string().min(6).optional(),
+    }).parse(req.body);
+
+    const [user] = await db.select().from(users).where(eq(users.id, req.user!.id)).limit(1);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Verify current password if changing password or email
+    if (data.newPassword || data.email) {
+      if (!data.currentPassword) return res.status(400).json({ error: 'Current password required to change email or password' });
+      const valid = await bcrypt.compare(data.currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Check email uniqueness if changing email
+    if (data.email && data.email !== user.email) {
+      const exists = await db.select({ id: users.id }).from(users).where(eq(users.email, data.email)).limit(1);
+      if (exists.length > 0) return res.status(400).json({ error: 'Email already in use' });
+    }
+
+    const updates: any = {};
+    if (data.name) updates.name = data.name;
+    if (data.email) updates.email = data.email;
+    if (data.newPassword) updates.passwordHash = await bcrypt.hash(data.newPassword, 12);
+
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No changes provided' });
+
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, req.user!.id)).returning();
+    const newToken = generateToken({ id: updated.id, email: updated.email, role: updated.role, name: updated.name });
+    return res.json({ user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role }, token: newToken });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 router.get('/classes', authenticate, async (_req, res) => {
   try {
     const allClasses = await db.select().from(classes);

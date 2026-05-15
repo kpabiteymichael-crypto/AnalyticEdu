@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { settingsApi } from '../lib/api';
 import { GraduationCap, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
-const DEMO_ACCOUNTS = [
+const DEFAULT_DEMO_ACCOUNTS = [
   { label: 'Admin', email: 'admin@eduanalytics.com', password: 'admin123', color: 'bg-purple-100 text-purple-700 border-purple-200' },
   { label: 'Teacher', email: 'j.rodriguez@eduanalytics.com', password: 'teacher123', color: 'bg-blue-100 text-blue-700 border-blue-200' },
   { label: 'Student', email: 'student@eduanalytics.com', password: 'student123', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
@@ -18,6 +19,13 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [demoAccounts, setDemoAccounts] = useState(DEFAULT_DEMO_ACCOUNTS);
+
+  useEffect(() => {
+    settingsApi.getDemoAccounts()
+      .then(accounts => { if (accounts?.length) setDemoAccounts(accounts); })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +41,7 @@ export default function Login() {
     }
   };
 
-  const fillDemo = (account: typeof DEMO_ACCOUNTS[0]) => {
+  const fillDemo = (account: typeof DEFAULT_DEMO_ACCOUNTS[0]) => {
     setEmail(account.email);
     setPassword(account.password);
     setError('');
@@ -59,9 +67,9 @@ export default function Login() {
           <div className="mb-6">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Quick Demo Login</p>
             <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map(acc => (
+              {demoAccounts.map((acc, i) => (
                 <button
-                  key={acc.label}
+                  key={i}
                   onClick={() => fillDemo(acc)}
                   className={`text-xs font-semibold py-2 px-3 rounded-xl border transition-all hover:scale-105 ${acc.color}`}
                 >

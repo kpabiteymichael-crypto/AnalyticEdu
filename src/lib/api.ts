@@ -33,6 +33,8 @@ export const authApi = {
     api.post('/auth/register', data).then(r => r.data),
   me: () => api.get('/auth/me').then(r => r.data),
   classes: () => api.get('/auth/classes').then(r => r.data),
+  updateProfile: (data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }) =>
+    api.put('/auth/profile', data).then(r => r.data),
 };
 
 // ─── Students ─────────────────────────────────────────────
@@ -58,6 +60,9 @@ export const scoresApi = {
   trends: (id: number) => api.get(`/scores/student/${id}/trends`).then(r => r.data),
   subjectBreakdown: () => api.get('/scores/analytics/subject-breakdown').then(r => r.data),
   monthlyTrend: () => api.get('/scores/analytics/monthly-trend').then(r => r.data),
+  resetStudent: (studentId: number) => api.post(`/scores/reset/student/${studentId}`).then(r => r.data),
+  resetSubject: (subject: string) => api.post(`/scores/reset/subject/${subject}`).then(r => r.data),
+  resetClass: (classId: number) => api.post(`/scores/reset/class/${classId}`).then(r => r.data),
 };
 
 // ─── Rankings ─────────────────────────────────────────────
@@ -137,6 +142,9 @@ export const settingsApi = {
     api.put('/settings/level-thresholds', { thresholds }).then(r => r.data),
   updateSubjectMaxMarks: (marks: Record<string, number>) =>
     api.put('/settings/subject-max-marks', { marks }).then(r => r.data),
+  getDemoAccounts: () => api.get('/settings/demo-accounts').then(r => r.data),
+  updateDemoAccounts: (accounts: any[]) =>
+    api.put('/settings/demo-accounts', { accounts }).then(r => r.data),
   updateXpRewards: (rewards: { minPct: number; xp: number }[]) =>
     api.put('/settings/xp-rewards', { rewards }).then(r => r.data),
   updateSubjectLabels: (labels: Record<string, string>) =>
