@@ -10,8 +10,12 @@ import { z } from 'zod';
 const router = Router();
 
 // ── Badge award helper ────────────────────────────────────────────────────────
-// Awards any newly-unlocked badges after a score is recorded.
-// Returns the total badge XP added so the caller can reflect it.
+// Awards badges and XP after a score is recorded.
+// - One-time badges (Math Wizard, Science Star, Bookworm, Fast Learner): awarded once, badge inserted once.
+// - Perfect Score: badge inserted only on FIRST perfect score, but XP is awarded for EVERY perfect score.
+// - Level Up!: badge inserted at level 5, XP awarded at every subsequent 5th-level milestone
+//   with the reward doubling each time (level 5 = base, level 10 = base×2, level 15 = base×4, …).
+// Returns total extra XP added to the student.
 async function checkAndAwardBadges(params: {
   studentId: number;
   subject: string;
@@ -24,58 +28,51 @@ async function checkAndAwardBadges(params: {
   const { studentId, subject, score, maxScore, currentLevel, currentXp, levelThresholds } = params;
   const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
 
-  // Load all badges and already-earned badge ids for this student in one go
-  const [allBadges, earnedRows] = await Promise.all([
+  // Load all badges, earned badge ids, and level-milestone logs in parallel
+  const [allBadges, earnedRows, milestoneLogs] = await Promise.all([
     db.select().from(badges),
     db.select({ badgeId: studentBadges.badgeId }).from(studentBadges).where(eq(studentBadges.studentId, studentId)),
+    db.select({ description: activityLogs.description })
+      .from(activityLogs)
+      .where(and(eq(activityLogs.studentId, studentId), eq(activityLogs.activityType, 'level_milestone'))),
   ]);
   const earned = new Set(earnedRows.map(r => r.badgeId));
 
-  // Aggregate data needed for multi-criteria checks
-  const [allScores] = await Promise.all([
-    db.select({ subject: scores.subject, score: scores.score, maxScore: scores.maxScore, recordedAt: scores.recordedAt })
-      .from(scores).where(eq(scores.studentId, studentId)),
-  ]);
+  // Parse which level milestones have already been recorded from activity descriptions
+  const awardedMilestoneLevels = new Set<number>(
+    milestoneLogs.flatMap(row => {
+      const m = row.description.match(/Level\s+(\d+)\s+milestone/i);
+      return m ? [parseInt(m[1])] : [];
+    })
+  );
+
+  // Score-history data for multi-criteria checks
+  const allScores = await db
+    .select({ subject: scores.subject, score: scores.score, maxScore: scores.maxScore, recordedAt: scores.recordedAt })
+    .from(scores).where(eq(scores.studentId, studentId));
 
   const totalAssessments = allScores.length;
-
-  // Subject-specific helpers
-  const mathScores = allScores.filter(s => s.subject === 'math');
+  const mathScores    = allScores.filter(s => s.subject === 'math');
   const scienceScores = allScores.filter(s => s.subject === 'science');
-  const subjectScores = allScores.filter(s => s.subject === subject).sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
+  const subjectScores = allScores.filter(s => s.subject === subject)
+    .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
 
-  const math90Plus = mathScores.filter(s => s.maxScore > 0 && (s.score / s.maxScore) * 100 >= 90).length;
+  const math90Plus    = mathScores.filter(s => s.maxScore > 0 && (s.score / s.maxScore) * 100 >= 90).length;
   const science90Plus = scienceScores.filter(s => s.maxScore > 0 && (s.score / s.maxScore) * 100 >= 90).length;
-
-  // Fast Learner: current score is ≥20 raw points higher than the previous score in same subject
-  const prevScore = subjectScores.length >= 2 ? subjectScores[subjectScores.length - 2] : null;
-  const improvement = prevScore ? score - prevScore.score : 0;
+  const prevScore     = subjectScores.length >= 2 ? subjectScores[subjectScores.length - 2] : null;
+  const improvement   = prevScore ? score - prevScore.score : 0;
 
   const toBadge = (name: string) => allBadges.find(b => b.name === name);
 
-  // Collect badges to award
-  const toAward: typeof allBadges = [];
+  let totalAwardedXp = 0;
 
-  const tryAward = (badge: typeof allBadges[0] | undefined) => {
-    if (badge && !earned.has(badge.id)) toAward.push(badge);
-  };
-
-  // ── Criteria ───────────────────────────────────────────
-  if (pct >= 100)           tryAward(toBadge('Perfect Score'));
-  if (math90Plus >= 3)      tryAward(toBadge('Math Wizard'));
-  if (science90Plus >= 1)   tryAward(toBadge('Science Star'));
-  if (totalAssessments >= 20) tryAward(toBadge('Bookworm'));
-  if (improvement >= 20)    tryAward(toBadge('Fast Learner'));
-  if (currentLevel >= 5)    tryAward(toBadge('Level Up!'));
-
-  if (toAward.length === 0) return 0;
-
-  // Award all eligible badges and accumulate XP
-  let totalBadgeXp = 0;
-  for (const badge of toAward) {
+  // ── Helper: insert badge + log (one-time only) ──────────────────────────────
+  const tryAwardBadge = async (badge: (typeof allBadges)[0] | undefined) => {
+    if (!badge || earned.has(badge.id)) return;
     try {
       await db.insert(studentBadges).values({ studentId, badgeId: badge.id });
-      totalBadgeXp += badge.xpReward;
+      earned.add(badge.id); // prevent double-insert within same call
+      totalAwardedXp += badge.xpReward;
       await db.insert(activityLogs).values({
         studentId,
         activityType: 'badge_earned',
@@ -83,19 +80,81 @@ async function checkAndAwardBadges(params: {
         xpEarned: badge.xpReward,
       });
     } catch {
-      // Unique constraint violation = already awarded concurrently, skip
+      // Unique constraint — race condition, ignore
+    }
+  };
+
+  // ── One-time achievement badges ─────────────────────────────────────────────
+  if (math90Plus >= 3)         await tryAwardBadge(toBadge('Math Wizard'));
+  if (science90Plus >= 1)      await tryAwardBadge(toBadge('Science Star'));
+  if (totalAssessments >= 20)  await tryAwardBadge(toBadge('Bookworm'));
+  if (improvement >= 20)       await tryAwardBadge(toBadge('Fast Learner'));
+
+  // ── Perfect Score: badge once, XP every time ───────────────────────────────
+  if (pct >= 100) {
+    const ps = toBadge('Perfect Score');
+    if (ps) {
+      if (!earned.has(ps.id)) {
+        // First perfect score — award the badge (which also logs + adds XP via tryAwardBadge)
+        await tryAwardBadge(ps);
+      } else {
+        // Subsequent perfect scores — award XP additively (no duplicate badge insert)
+        totalAwardedXp += ps.xpReward;
+        await db.insert(activityLogs).values({
+          studentId,
+          activityType: 'perfect_score_xp',
+          description: `Earned ${ps.xpReward} XP for a perfect score`,
+          xpEarned: ps.xpReward,
+        });
+      }
     }
   }
 
-  if (totalBadgeXp > 0) {
-    // Fetch latest XP (may have changed mid-request) and add badge bonus
+  // ── Level Up!: every 5th level, XP doubles each milestone ──────────────────
+  // Checks all pending multiples of 5 up to currentLevel to handle level-skips.
+  const lu = toBadge('Level Up!');
+  if (lu && currentLevel >= 5) {
+    for (let milestone = 5; milestone <= currentLevel; milestone += 5) {
+      if (awardedMilestoneLevels.has(milestone)) continue; // already processed
+
+      const milestoneNumber = milestone / 5;                           // 1, 2, 3, …
+      const milestoneXp     = lu.xpReward * Math.pow(2, milestoneNumber - 1); // base, ×2, ×4, …
+
+      // Insert badge only the very first time (level 5); subsequent milestones are XP-only
+      if (milestone === 5 && !earned.has(lu.id)) {
+        try {
+          await db.insert(studentBadges).values({ studentId, badgeId: lu.id });
+          earned.add(lu.id);
+        } catch { /* race condition */ }
+        await db.insert(activityLogs).values({
+          studentId,
+          activityType: 'badge_earned',
+          description: `Earned the "Level Up!" badge`,
+          xpEarned: 0, // XP tracked separately via level_milestone log below
+        });
+      }
+
+      // Always log the milestone and accumulate XP
+      totalAwardedXp += milestoneXp;
+      awardedMilestoneLevels.add(milestone); // prevent double-processing within same call
+      await db.insert(activityLogs).values({
+        studentId,
+        activityType: 'level_milestone',
+        description: `Level ${milestone} milestone reached — earned ${milestoneXp} XP (×${Math.pow(2, milestoneNumber - 1)} multiplier)`,
+        xpEarned: milestoneXp,
+      });
+    }
+  }
+
+  // ── Apply all accumulated XP to the student ─────────────────────────────────
+  if (totalAwardedXp > 0) {
     const [fresh] = await db.select({ xp: students.xp }).from(students).where(eq(students.id, studentId)).limit(1);
-    const updatedXp = (fresh?.xp ?? currentXp) + totalBadgeXp;
+    const updatedXp    = (fresh?.xp ?? currentXp) + totalAwardedXp;
     const updatedLevel = getLevelFromThresholds(updatedXp, levelThresholds);
     await db.update(students).set({ xp: updatedXp, level: updatedLevel }).where(eq(students.id, studentId));
   }
 
-  return totalBadgeXp;
+  return totalAwardedXp;
 }
 
 const scoreSchema = z.object({
