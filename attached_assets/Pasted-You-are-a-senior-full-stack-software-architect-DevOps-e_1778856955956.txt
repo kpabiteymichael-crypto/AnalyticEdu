@@ -1,0 +1,363 @@
+You are a senior full-stack software architect, DevOps engineer, mobile app engineer, cybersecurity analyst, QA engineer, UI/UX engineer, and product deployment consultant.
+
+Your task is to transform the existing prototype analytics platform into a fully production-ready live application that can:
+- run securely on the web,
+- scale to many users,
+- use a production-grade PostgreSQL database,
+- include backups and monitoring,
+- support secure authentication,
+- be installable as a mobile app,
+- and be ready for real-world deployment.
+
+Existing prototype:
+https://ideal-jealous-graphs--kpabiteymichael.replit.app/admin
+
+You must autonomously execute ALL phases sequentially from start to finish.
+
+DO NOT stop after analysis.
+DO NOT ask unnecessary questions.
+DO NOT provide only recommendations.
+ACTUALLY implement the improvements phase by phase.
+
+====================================================
+GLOBAL EXECUTION RULES
+====================================================
+
+1. Execute phases in order.
+2. Validate each phase before moving to the next.
+3. Preserve existing functionality unless improvement is required.
+4. Use modern production best practices.
+5. Prefer scalable and cost-effective solutions.
+6. Use clean architecture principles.
+7. Create reusable, maintainable code.
+8. Generate deployment-ready configurations.
+9. Explain important architectural decisions.
+10. If blockers occur:
+   - explain the issue,
+   - propose solutions,
+   - continue where possible.
+
+====================================================
+TARGET STACK
+====================================================
+
+Frontend Hosting:
+- Vercel
+
+Backend Hosting:
+- Railway or Render
+
+Database:
+- PostgreSQL
+
+Monitoring:
+- Sentry
+- UptimeRobot
+- PostHog or Google Analytics
+
+Mobile App:
+- Capacitor or React Native depending on compatibility
+
+CI/CD:
+- GitHub Actions
+
+====================================================
+PHASE 1 — FULL SYSTEM AUDIT
+====================================================
+
+Analyze the entire application:
+- frontend architecture,
+- backend architecture,
+- routing structure,
+- API structure,
+- authentication,
+- database structure,
+- dependencies,
+- environment variables,
+- scalability,
+- security,
+- performance,
+- mobile responsiveness,
+- code quality.
+
+Generate:
+- architecture report,
+- deployment readiness report,
+- dependency audit,
+- security audit,
+- scalability assessment,
+- technical debt report.
+
+Identify:
+- vulnerabilities,
+- bad practices,
+- duplicated logic,
+- bottlenecks,
+- missing production requirements.
+
+Do NOT modify code yet.
+Understand the full system first.
+
+====================================================
+PHASE 2 — ARCHITECTURE REFACTORING
+====================================================
+
+Refactor the codebase into production-grade architecture.
+
+Frontend:
+- improve folder structure,
+- optimize components,
+- remove duplicated logic,
+- improve state management,
+- improve responsiveness,
+- improve accessibility,
+- improve routing,
+- optimize rendering,
+- add loading states,
+- add proper error handling.
+
+Backend:
+- modularize services,
+- separate controllers/routes/models,
+- implement middleware architecture,
+- add centralized error handling,
+- validate inputs,
+- sanitize requests,
+- add API versioning,
+- improve authentication flow,
+- improve authorization logic,
+- add structured logging.
+
+Security:
+- secure secrets,
+- secure environment variables,
+- prevent SQL injection,
+- prevent XSS,
+- prevent CSRF,
+- implement rate limiting,
+- implement secure headers,
+- implement authentication best practices.
+
+====================================================
+PHASE 3 — DATABASE MIGRATION & OPTIMIZATION
+====================================================
+
+Migrate the system to PostgreSQL.
+
+Tasks:
+- design optimized production schema,
+- normalize tables where necessary,
+- create migration scripts,
+- configure ORM properly,
+- implement indexing,
+- optimize queries,
+- configure connection pooling,
+- implement transaction safety.
+
+Implement:
+- automatic backups,
+- backup scheduling,
+- restore procedures,
+- database monitoring.
+
+Generate:
+- database schema documentation,
+- migration documentation.
+
+====================================================
+PHASE 4 — BACKEND DEPLOYMENT
+====================================================
+
+Deploy backend to Railway or Render.
+
+Tasks:
+- configure production environment variables,
+- configure build scripts,
+- configure deployment pipeline,
+- enable HTTPS,
+- configure API security,
+- configure autoscaling where possible,
+- configure structured logs,
+- configure health checks.
+
+Generate:
+- deployment scripts,
+- rollback strategy,
+- infrastructure documentation.
+
+Test:
+- API endpoints,
+- authentication,
+- database connectivity,
+- production stability.
+
+====================================================
+PHASE 5 — FRONTEND DEPLOYMENT
+====================================================
+
+Deploy frontend to Vercel.
+
+Tasks:
+- optimize production builds,
+- configure API connections,
+- configure environment variables,
+- optimize SEO,
+- optimize caching,
+- configure CDN usage,
+- improve performance,
+- optimize responsiveness,
+- implement security headers.
+
+Ensure:
+- fast loading speed,
+- responsive design,
+- stable API communication,
+- production-grade user experience.
+
+====================================================
+PHASE 6 — MONITORING & ANALYTICS
+====================================================
+
+Integrate:
+- Sentry,
+- UptimeRobot,
+- PostHog or Google Analytics,
+- backend monitoring,
+- frontend crash reporting,
+- API monitoring,
+- server monitoring.
+
+Configure:
+- error tracking,
+- performance monitoring,
+- usage analytics,
+- uptime alerts,
+- abuse detection alerts.
+
+Generate:
+- monitoring dashboard setup,
+- alert configuration documentation.
+
+====================================================
+PHASE 7 — MOBILE APP CONVERSION
+====================================================
+
+Convert the platform into an installable Android application.
+
+Preferred approach:
+- Capacitor if frontend is already compatible,
+- otherwise React Native.
+
+Tasks:
+- optimize mobile responsiveness,
+- configure splash screen,
+- configure app icons,
+- optimize navigation,
+- optimize performance,
+- implement mobile-friendly authentication,
+- configure API communication,
+- enable push notification readiness,
+- package APK build.
+
+Generate:
+- signed APK build instructions,
+- Android deployment documentation.
+
+====================================================
+PHASE 8 — TESTING & QA
+====================================================
+
+Perform:
+- unit testing,
+- integration testing,
+- API testing,
+- frontend testing,
+- mobile responsiveness testing,
+- load testing,
+- authentication testing,
+- security testing,
+- deployment testing.
+
+Generate:
+- bug reports,
+- optimization reports,
+- QA checklist,
+- unresolved issue list if any.
+
+====================================================
+PHASE 9 — PERFORMANCE OPTIMIZATION
+====================================================
+
+Optimize:
+- frontend bundle size,
+- backend response time,
+- database performance,
+- API performance,
+- caching strategy,
+- lazy loading,
+- image optimization,
+- compression,
+- CDN usage.
+
+Ensure:
+- scalability,
+- reliability,
+- maintainability,
+- production stability.
+
+====================================================
+PHASE 10 — CI/CD & AUTOMATION
+====================================================
+
+Implement GitHub Actions workflows for:
+- automated testing,
+- automated deployments,
+- build verification,
+- rollback support.
+
+Configure:
+- staging workflow,
+- production workflow,
+- environment protection rules.
+
+====================================================
+PHASE 11 — FINAL DOCUMENTATION
+====================================================
+
+Generate:
+- developer documentation,
+- deployment guide,
+- API documentation,
+- database documentation,
+- architecture diagram,
+- admin guide,
+- monitoring guide,
+- backup & recovery guide,
+- mobile build guide,
+- scaling guide.
+
+====================================================
+FINAL DELIVERABLES
+====================================================
+
+Provide:
+- production-ready frontend,
+- production-ready backend,
+- PostgreSQL configuration,
+- deployment configurations,
+- environment variable template,
+- CI/CD pipelines,
+- monitoring setup,
+- backup setup,
+- optimized database schema,
+- testing reports,
+- architecture documentation,
+- APK/mobile app build instructions.
+
+The final system must be:
+- secure,
+- scalable,
+- maintainable,
+- fault tolerant,
+- mobile friendly,
+- production ready.

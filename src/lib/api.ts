@@ -1,10 +1,12 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import { captureException } from './sentry';
 
 const BASE_URL = '/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
@@ -15,13 +17,30 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (r) => r,
-  (err) => {
+  (err: AxiosError<{ error?: string; message?: string }>) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('edu_token');
       localStorage.removeItem('edu_user');
       window.location.href = '/login';
+      return Promise.reject(err);
     }
-    return Promise.reject(err);
+
+    if (err.response && err.response.status >= 500) {
+      captureException(err, {
+        url: err.config?.url,
+        method: err.config?.method,
+        status: err.response.status,
+      });
+    }
+
+    const message =
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      (err.code === 'ECONNABORTED' ? 'Request timed out. Please try again.' : null) ||
+      (!err.response ? 'Network error. Check your connection.' : null) ||
+      'An unexpected error occurred.';
+
+    return Promise.reject(new Error(message));
   }
 );
 

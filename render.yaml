@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: eduanalytics-api
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: node -e "require('./dist/server/index.js')" 2>/dev/null || npx tsx server/index.ts
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduanalytics-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LOG_LEVEL
+        value: info
+      - key: SENTRY_DSN
+        sync: false
+
+  - type: pserv
+    name: eduanalytics-db
+    runtime: pgsql
+    plan: starter
+    region: oregon
+    ipAllowList: []
+
+databases:
+  - name: eduanalytics-db
+    plan: starter
+    region: oregon
+    databaseName: eduanalytics
+    user: eduanalytics
