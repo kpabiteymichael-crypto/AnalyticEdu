@@ -2,13 +2,83 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { studentsApi, authApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Users, Search, ChevronRight, Star, Flame, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, Search, ChevronRight, Star, Flame, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle, ChevronDown, ChevronUp, LayoutGrid, Layers } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 
 type Toast = { type: 'success' | 'error'; message: string };
 
 const emptyForm = { name: '', email: '', password: '', grade: 7, classId: '' };
+
+function TeamGroup({ teamName, members, onEdit, onDelete }: {
+  teamName: string;
+  members: any[];
+  onEdit: (s: any) => void;
+  onDelete: (s: any) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const avgXp = Math.round(members.reduce((s, m) => s + m.xp, 0) / (members.length || 1));
+  return (
+    <div className="card">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 text-left">
+        <div className="w-10 h-10 grad-primary rounded-xl flex items-center justify-center flex-shrink-0">
+          <Layers size={18} className="text-white" />
+        </div>
+        <div className="flex-1">
+          <div className="font-bold text-slate-900">{teamName}</div>
+          <div className="text-xs text-slate-500">{members.length} member{members.length !== 1 ? 's' : ''} · avg {avgXp.toLocaleString()} XP</div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs font-semibold bg-primary-50 text-primary-700 px-2.5 py-1 rounded-full">
+            {members.length} students
+          </span>
+          {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-4 border-t border-slate-100 pt-4 space-y-2">
+          {members.sort((a, b) => b.xp - a.xp).map((student, idx) => (
+            <div key={student.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+              <span className={clsx('text-xs font-bold w-6 text-center flex-shrink-0',
+                idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-amber-700' : 'text-slate-400')}>
+                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+              </span>
+              <div className="w-8 h-8 grad-primary rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                {student.name?.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-900 text-sm truncate">{student.name}</div>
+                <div className="text-xs text-slate-400">{student.studentCode} · Grade {student.grade}</div>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm font-bold text-primary-600">{student.xp.toLocaleString()} XP</div>
+                  <div className="text-xs text-slate-400">Lv.{student.level}</div>
+                </div>
+                {student.streakDays > 0 && (
+                  <div className="flex items-center gap-0.5 text-amber-500 text-xs font-medium hidden sm:flex">
+                    <Flame size={12} />{student.streakDays}d
+                  </div>
+                )}
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => onEdit(student)}
+                    className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-colors">
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => onDelete(student)}
+                    className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 text-slate-400 hover:text-red-600 hover:border-red-200 transition-colors">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Students() {
   const { user } = useAuth();
@@ -18,7 +88,8 @@ export default function Students() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [gradeFilter, setGradeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<'xp' | 'name' | 'level'>('xp');
+  const [sortBy, setSortBy] = useState<'xp' | 'name' | 'level' | 'team'>('xp');
+  const [groupByTeam, setGroupByTeam] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
 
   // Modals
@@ -157,8 +228,8 @@ export default function Students() {
       </div>
 
       {/* Filters */}
-      <div className="card mb-6 flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="card mb-6 flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-48">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -172,15 +243,56 @@ export default function Students() {
           <option value="all">All Grades</option>
           {grades.map(g => <option key={g} value={g}>Grade {g}</option>)}
         </select>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="input sm:w-36">
+        <select value={sortBy} onChange={e => { setSortBy(e.target.value as any); setGroupByTeam(false); }} className="input sm:w-36" disabled={groupByTeam}>
           <option value="xp">Sort: XP</option>
           <option value="level">Sort: Level</option>
           <option value="name">Sort: Name</option>
         </select>
+        <button
+          onClick={() => setGroupByTeam(g => !g)}
+          className={clsx('flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all',
+            groupByTeam
+              ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-100'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300 hover:text-primary-600')}
+        >
+          <Layers size={15} />
+          By Team
+        </button>
       </div>
 
-      {/* Student Grid */}
-      {filtered.length === 0 ? (
+      {/* === BY-TEAM GROUP VIEW === */}
+      {groupByTeam ? (() => {
+        const teams: Record<string, typeof filtered> = {};
+        filtered.forEach(s => {
+          const key = s.className ?? 'Unassigned';
+          if (!teams[key]) teams[key] = [];
+          teams[key].push(s);
+        });
+        const teamEntries = Object.entries(teams).sort((a, b) => b[1].length - a[1].length);
+
+        return (
+          <div className="space-y-4">
+            {teamEntries.map(([teamName, members]) => (
+              <TeamGroup
+                key={teamName}
+                teamName={teamName}
+                members={members}
+                onEdit={openEdit}
+                onDelete={s => setShowDelete(s)}
+              />
+            ))}
+            {teamEntries.length === 0 && (
+              <div className="empty-state card">
+                <Layers size={32} className="text-slate-300 mb-3" />
+                <p className="text-slate-500 font-semibold">No teams found</p>
+              </div>
+            )}
+          </div>
+        );
+      })() : null}
+
+      {/* === REGULAR GRID VIEW === */}
+      {!groupByTeam && (filtered.length === 0 ? (
         <div className="empty-state card">
           <Users size={32} className="text-slate-300 mb-3" />
           <p className="text-slate-500 font-semibold">No students found</p>
@@ -270,7 +382,7 @@ export default function Students() {
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Create Modal */}
       {showCreate && (

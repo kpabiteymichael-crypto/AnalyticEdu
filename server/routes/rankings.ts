@@ -1,12 +1,11 @@
 import { Router } from 'express';
 import { db } from '../db/index';
-import { rankings, students, users } from '../db/schema';
+import { rankings, students, users, classes } from '../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
-// Recalculate and update rankings
 async function recalculateRankings() {
   const period = '2024-2025-S1';
   const studentData = await db
@@ -19,16 +18,24 @@ async function recalculateRankings() {
         FROM scores 
         WHERE student_id = students.id
       ), 0)`,
+      totalScore: sql<number>`COALESCE((
+        SELECT SUM(score)
+        FROM scores
+        WHERE student_id = students.id
+      ), 0)`,
+      totalMaxScore: sql<number>`COALESCE((
+        SELECT SUM(max_score)
+        FROM scores
+        WHERE student_id = students.id
+      ), 0)`,
     })
     .from(students)
     .orderBy(desc(students.xp));
 
-  // Assign overall ranks
   for (let i = 0; i < studentData.length; i++) {
     const s = studentData[i];
     const overallRank = i + 1;
 
-    // Calculate class rank
     let classRank = null;
     if (s.classId) {
       const classmates = studentData
@@ -59,6 +66,7 @@ router.get('/leaderboard', authenticate, async (_req, res) => {
     const result = await db
       .select({
         rank: rankings.overallRank,
+        classRank: rankings.classRank,
         studentId: students.id,
         studentCode: students.studentCode,
         name: users.name,
@@ -68,13 +76,18 @@ router.get('/leaderboard', authenticate, async (_req, res) => {
         averageScore: rankings.averageScore,
         streakDays: students.streakDays,
         classId: students.classId,
+        className: classes.name,
+        totalScore: sql<number>`COALESCE((SELECT SUM(score) FROM scores WHERE student_id = students.id), 0)`,
+        totalMaxScore: sql<number>`COALESCE((SELECT SUM(max_score) FROM scores WHERE student_id = students.id), 0)`,
+        scoreCount: sql<number>`COALESCE((SELECT COUNT(*) FROM scores WHERE student_id = students.id), 0)`,
       })
       .from(rankings)
       .innerJoin(students, eq(rankings.studentId, students.id))
       .innerJoin(users, eq(students.userId, users.id))
+      .leftJoin(classes, eq(students.classId, classes.id))
       .where(eq(rankings.period, '2024-2025-S1'))
       .orderBy(rankings.overallRank)
-      .limit(50);
+      .limit(100);
 
     return res.json(result);
   } catch (err) {

@@ -27,6 +27,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 : 3001);
 
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({

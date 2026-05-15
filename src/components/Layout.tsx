@@ -218,14 +218,22 @@ export default function Layout() {
             )}
           </div>
 
-          {/* User avatar */}
+          {/* User avatar + logout */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 grad-primary rounded-full flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-8 h-8 grad-primary rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div className="hidden sm:block">
               <div className="text-sm font-semibold text-slate-900">{user?.name}</div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="ml-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-200 transition-all"
+              title="Sign out"
+            >
+              <LogOut size={13} />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </header>
 

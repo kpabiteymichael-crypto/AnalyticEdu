@@ -10,7 +10,7 @@ run = [
 hidden = [".deno"]
 
 entrypoint = "index.ts"
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "python-3.11"]
 
 [languages.deno]
 pattern = "**/*.{ts,js}"
