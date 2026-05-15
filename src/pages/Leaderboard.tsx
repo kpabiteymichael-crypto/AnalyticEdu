@@ -314,8 +314,12 @@ export default function Leaderboard() {
                   <div className="text-xs text-slate-500 mt-0.5">Class average</div>
                 </div>
                 <div className="card py-3 text-center">
-                  <div className="text-2xl font-black text-slate-700">{currentSubjectMax}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Max marks target</div>
+                  <div className="text-2xl font-black text-slate-700">
+                    {filteredSubject.filter(s => s.assessmentCount > 0).length > 0
+                      ? Math.round(filteredSubject.filter(s => s.assessmentCount > 0).reduce((s, x) => s + (x.totalMaxScore ?? 0), 0) / filteredSubject.filter(s => s.assessmentCount > 0).length)
+                      : currentSubjectMax}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">Avg total max</div>
                 </div>
               </div>
 
@@ -324,14 +328,14 @@ export default function Leaderboard() {
                   <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <BookOpen size={16} className="text-primary-500" />
                     {subjectLabels[view] ?? view} Rankings
-                    <span className="text-xs text-slate-400 font-normal">· Max: {currentSubjectMax} marks</span>
+                    <span className="text-xs text-slate-400 font-normal">· max per student = sum of assessment max marks</span>
                   </h3>
                 </div>
                 <div className="grid grid-cols-[2.5rem_1fr_2fr_4rem_4rem_5rem] gap-2 px-4 py-3 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   <div>Rank</div><div>Name</div><div>Progress</div><div className="text-center">Obtained</div><div className="text-center">Max</div><div className="text-center">Badge</div>
                 </div>
                 <div className="divide-y divide-slate-50 mt-1">
-                  {filteredSubject.map(s => <StudentRow key={s.studentId} student={s} showOverallRank={true} targetMax={currentSubjectMax} />)}
+                  {filteredSubject.map(s => <StudentRow key={s.studentId} student={s} showOverallRank={true} />)}
                 </div>
                 {filteredSubject.length === 0 && (
                   <div className="py-16 text-center"><Award size={32} className="text-slate-200 mx-auto mb-3" /><p className="text-slate-400">No data for this subject yet</p></div>

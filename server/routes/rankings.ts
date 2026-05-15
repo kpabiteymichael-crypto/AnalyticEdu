@@ -114,16 +114,27 @@ router.get('/leaderboard/subject/:subject', authenticate, async (req, res) => {
         st.streak_days   AS "streakDays",
         st.class_id      AS "classId",
         cl.name          AS "className",
-        COALESCE(SUM(CASE WHEN sc.subject = ${subject} THEN sc.score    ELSE 0   END), 0)    AS "totalScore",
-        COALESCE(SUM(CASE WHEN sc.subject = ${subject} THEN sc.max_score ELSE 0  END), 0)    AS "totalMaxScore",
-        COALESCE(AVG(CASE WHEN sc.subject = ${subject} THEN sc.score / NULLIF(sc.max_score,0) * 100 END), 0) AS "avgScore",
-        COUNT(CASE WHEN sc.subject = ${subject} THEN 1 END)                                  AS "assessmentCount"
+        COALESCE(SUM(CASE WHEN sc.subject = ${subject} THEN sc.score     ELSE 0 END), 0) AS "totalScore",
+        COALESCE(SUM(CASE WHEN sc.subject = ${subject} THEN sc.max_score ELSE 0 END), 0) AS "totalMaxScore",
+        CASE
+          WHEN SUM(CASE WHEN sc.subject = ${subject} THEN sc.max_score ELSE 0 END) > 0
+          THEN SUM(CASE WHEN sc.subject = ${subject} THEN sc.score ELSE 0 END)
+               / SUM(CASE WHEN sc.subject = ${subject} THEN sc.max_score ELSE 0 END) * 100
+          ELSE 0
+        END AS "avgScore",
+        COUNT(CASE WHEN sc.subject = ${subject} THEN 1 END) AS "assessmentCount"
       FROM students st
       INNER JOIN users u  ON u.id  = st.user_id
       LEFT  JOIN classes cl ON cl.id = st.class_id
       LEFT  JOIN scores  sc ON sc.student_id = st.id
       GROUP BY st.id, u.name, cl.name
-      ORDER BY COALESCE(AVG(CASE WHEN sc.subject = ${subject} THEN sc.score / NULLIF(sc.max_score,0) * 100 END), 0) DESC
+      ORDER BY
+        CASE
+          WHEN SUM(CASE WHEN sc.subject = ${subject} THEN sc.max_score ELSE 0 END) > 0
+          THEN SUM(CASE WHEN sc.subject = ${subject} THEN sc.score ELSE 0 END)
+               / SUM(CASE WHEN sc.subject = ${subject} THEN sc.max_score ELSE 0 END) * 100
+          ELSE 0
+        END DESC
     `);
 
     const rows: any[] = (raw as any).rows ?? raw;

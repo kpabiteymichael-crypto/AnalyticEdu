@@ -9,6 +9,95 @@ import { z } from 'zod';
 
 const router = Router();
 
+// ── Badge award helper ────────────────────────────────────────────────────────
+// Awards any newly-unlocked badges after a score is recorded.
+// Returns the total badge XP added so the caller can reflect it.
+async function checkAndAwardBadges(params: {
+  studentId: number;
+  subject: string;
+  score: number;
+  maxScore: number;
+  currentLevel: number;
+  currentXp: number;
+  levelThresholds: number[];
+}): Promise<number> {
+  const { studentId, subject, score, maxScore, currentLevel, currentXp, levelThresholds } = params;
+  const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+
+  // Load all badges and already-earned badge ids for this student in one go
+  const [allBadges, earnedRows] = await Promise.all([
+    db.select().from(badges),
+    db.select({ badgeId: studentBadges.badgeId }).from(studentBadges).where(eq(studentBadges.studentId, studentId)),
+  ]);
+  const earned = new Set(earnedRows.map(r => r.badgeId));
+
+  // Aggregate data needed for multi-criteria checks
+  const [allScores] = await Promise.all([
+    db.select({ subject: scores.subject, score: scores.score, maxScore: scores.maxScore, recordedAt: scores.recordedAt })
+      .from(scores).where(eq(scores.studentId, studentId)),
+  ]);
+
+  const totalAssessments = allScores.length;
+
+  // Subject-specific helpers
+  const mathScores = allScores.filter(s => s.subject === 'math');
+  const scienceScores = allScores.filter(s => s.subject === 'science');
+  const subjectScores = allScores.filter(s => s.subject === subject).sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
+
+  const math90Plus = mathScores.filter(s => s.maxScore > 0 && (s.score / s.maxScore) * 100 >= 90).length;
+  const science90Plus = scienceScores.filter(s => s.maxScore > 0 && (s.score / s.maxScore) * 100 >= 90).length;
+
+  // Fast Learner: current score is ≥20 raw points higher than the previous score in same subject
+  const prevScore = subjectScores.length >= 2 ? subjectScores[subjectScores.length - 2] : null;
+  const improvement = prevScore ? score - prevScore.score : 0;
+
+  const toBadge = (name: string) => allBadges.find(b => b.name === name);
+
+  // Collect badges to award
+  const toAward: typeof allBadges = [];
+
+  const tryAward = (badge: typeof allBadges[0] | undefined) => {
+    if (badge && !earned.has(badge.id)) toAward.push(badge);
+  };
+
+  // ── Criteria ───────────────────────────────────────────
+  if (pct >= 100)           tryAward(toBadge('Perfect Score'));
+  if (math90Plus >= 3)      tryAward(toBadge('Math Wizard'));
+  if (science90Plus >= 1)   tryAward(toBadge('Science Star'));
+  if (totalAssessments >= 20) tryAward(toBadge('Bookworm'));
+  if (improvement >= 20)    tryAward(toBadge('Fast Learner'));
+  if (currentLevel >= 5)    tryAward(toBadge('Level Up!'));
+
+  if (toAward.length === 0) return 0;
+
+  // Award all eligible badges and accumulate XP
+  let totalBadgeXp = 0;
+  for (const badge of toAward) {
+    try {
+      await db.insert(studentBadges).values({ studentId, badgeId: badge.id });
+      totalBadgeXp += badge.xpReward;
+      await db.insert(activityLogs).values({
+        studentId,
+        activityType: 'badge_earned',
+        description: `Earned the "${badge.name}" badge`,
+        xpEarned: badge.xpReward,
+      });
+    } catch {
+      // Unique constraint violation = already awarded concurrently, skip
+    }
+  }
+
+  if (totalBadgeXp > 0) {
+    // Fetch latest XP (may have changed mid-request) and add badge bonus
+    const [fresh] = await db.select({ xp: students.xp }).from(students).where(eq(students.id, studentId)).limit(1);
+    const updatedXp = (fresh?.xp ?? currentXp) + totalBadgeXp;
+    const updatedLevel = getLevelFromThresholds(updatedXp, levelThresholds);
+    await db.update(students).set({ xp: updatedXp, level: updatedLevel }).where(eq(students.id, studentId));
+  }
+
+  return totalBadgeXp;
+}
+
 const scoreSchema = z.object({
   studentId: z.number(),
   subject: z.enum(['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music']),
@@ -65,21 +154,23 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req: AuthRe
       xpEarned,
     });
 
-    // Check for badge eligibility
-    const percentage = (data.score / data.maxScore) * 100;
-    if (percentage >= 100) {
-      const [perfectBadge] = await db.select().from(badges).where(eq(badges.name, 'Perfect Score')).limit(1);
-      if (perfectBadge) {
-        const exists = await db.select().from(studentBadges)
-          .where(and(eq(studentBadges.studentId, student.id), eq(studentBadges.badgeId, perfectBadge.id)))
-          .limit(1);
-        if (!exists.length) {
-          await db.insert(studentBadges).values({ studentId: student.id, badgeId: perfectBadge.id });
-        }
-      }
-    }
+    // ── Comprehensive badge check + XP award ─────────────
+    const badgeXp = await checkAndAwardBadges({
+      studentId: student.id,
+      subject: data.subject,
+      score: data.score,
+      maxScore: data.maxScore,
+      currentLevel: newLevel,
+      currentXp: newXp,
+      levelThresholds,
+    });
 
-    return res.status(201).json({ score, xpEarned, newXp, newLevel });
+    // If any badges awarded, the student's XP was already updated inside checkAndAwardBadges
+    const finalXp = badgeXp > 0
+      ? (await db.select({ xp: students.xp, level: students.level }).from(students).where(eq(students.id, student.id)).limit(1))[0]?.xp ?? newXp
+      : newXp;
+
+    return res.status(201).json({ score, xpEarned, newXp: finalXp, newLevel, badgeXp });
   } catch (err: any) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     console.error(err);
