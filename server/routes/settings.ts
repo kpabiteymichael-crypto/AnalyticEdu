@@ -31,6 +31,30 @@ export const DEFAULT_SUBJECT_LABELS: Record<string, string> = {
   music: 'Music',
 };
 
+export const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'] as const;
+
+export const DEFAULT_SUBJECT_MAX_MARKS: Record<string, number> = {
+  math: 100, science: 100, english: 100, history: 100,
+  art: 100, pe: 100, ict: 100, music: 100,
+};
+
+// Rank badge XP bonus percentages (fixed per spec)
+export const RANK_BADGE_BONUSES = {
+  diamond: 0.10, // ≥95% → +10% XP
+  gold: 0.05,    // ≥85% → +5% XP
+  ticket: 0.03,  // ≥70% → +3% XP
+  star: 0.02,    // ≥50% → +2% XP
+  none: 0,
+};
+
+export function getRankBadgeBonusMultiplier(avgPct: number): number {
+  if (avgPct >= 95) return RANK_BADGE_BONUSES.diamond;
+  if (avgPct >= 85) return RANK_BADGE_BONUSES.gold;
+  if (avgPct >= 70) return RANK_BADGE_BONUSES.ticket;
+  if (avgPct >= 50) return RANK_BADGE_BONUSES.star;
+  return RANK_BADGE_BONUSES.none;
+}
+
 export async function getSetting(key: string): Promise<string | null> {
   const result = await db.execute(sql`SELECT value FROM settings WHERE key = ${key}`);
   const rows = (result as any).rows ?? result;
@@ -71,12 +95,13 @@ export function getLevelFromThresholds(xp: number, thresholds: number[]): number
 // GET /api/settings
 router.get('/', authenticate, authorize('admin', 'teacher'), async (_req, res) => {
   try {
-    const [levelThresholds, xpRewards, subjectLabels] = await Promise.all([
+    const [levelThresholds, xpRewards, subjectLabels, subjectMaxMarks] = await Promise.all([
       getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
       getSettingJson('xp_rewards', DEFAULT_XP_REWARDS),
       getSettingJson('subject_labels', DEFAULT_SUBJECT_LABELS),
+      getSettingJson('subject_max_marks', DEFAULT_SUBJECT_MAX_MARKS),
     ]);
-    return res.json({ levelThresholds, xpRewards, subjectLabels });
+    return res.json({ levelThresholds, xpRewards, subjectLabels, subjectMaxMarks, rankBadgeBonuses: RANK_BADGE_BONUSES });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch settings' });
@@ -120,6 +145,18 @@ router.put('/subject-labels', authenticate, authorize('admin', 'teacher'), async
   } catch (err: any) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     return res.status(500).json({ error: 'Failed to update subject labels' });
+  }
+});
+
+// PUT /api/settings/subject-max-marks
+router.put('/subject-max-marks', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const { marks } = z.object({ marks: z.record(z.number().min(1)) }).parse(req.body);
+    await setSetting('subject_max_marks', JSON.stringify(marks));
+    return res.json({ success: true, marks });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to update subject max marks' });
   }
 });
 

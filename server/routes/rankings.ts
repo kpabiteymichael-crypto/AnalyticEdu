@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db/index';
-import { rankings, students, users, classes } from '../db/schema';
+import { rankings, students, users, classes, scores } from '../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { authenticate } from '../middleware/auth';
+import { getSettingJson, DEFAULT_SUBJECT_MAX_MARKS } from './settings';
 
 const router = Router();
 
@@ -93,6 +94,49 @@ router.get('/leaderboard', authenticate, async (_req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /api/rankings/leaderboard/subject/:subject
+router.get('/leaderboard/subject/:subject', authenticate, async (req, res) => {
+  try {
+    const subject = req.params.subject;
+    const subjectMaxMarks = await getSettingJson('subject_max_marks', DEFAULT_SUBJECT_MAX_MARKS);
+    const maxForSubject = subjectMaxMarks[subject] ?? 100;
+
+    const result = await db
+      .select({
+        studentId: students.id,
+        studentCode: students.studentCode,
+        name: users.name,
+        xp: students.xp,
+        level: students.level,
+        streakDays: students.streakDays,
+        classId: students.classId,
+        className: classes.name,
+        totalScore: sql<number>`COALESCE(SUM(CASE WHEN s.subject = ${subject} THEN s.score ELSE 0 END), 0)`,
+        totalMaxScore: sql<number>`COALESCE(SUM(CASE WHEN s.subject = ${subject} THEN s.max_score ELSE 0 END), 0)`,
+        avgScore: sql<number>`COALESCE(AVG(CASE WHEN s.subject = ${subject} THEN s.score / s.max_score * 100 END), 0)`,
+        assessmentCount: sql<number>`COUNT(CASE WHEN s.subject = ${subject} THEN 1 END)`,
+      })
+      .from(students)
+      .innerJoin(users, eq(students.userId, users.id))
+      .leftJoin(classes, eq(students.classId, classes.id))
+      .leftJoin(scores.as('s' as never), eq(sql`s.student_id`, students.id))
+      .groupBy(students.id, users.name, classes.name)
+      .orderBy(sql`COALESCE(AVG(CASE WHEN s.subject = ${subject} THEN s.score / s.max_score * 100 END), 0) DESC`);
+
+    const ranked = result.map((s, i) => ({
+      ...s,
+      rank: i + 1,
+      averageScore: Math.round((s.avgScore ?? 0) * 100) / 100,
+      subjectMaxMarks: maxForSubject,
+    }));
+
+    return res.json(ranked);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to fetch subject leaderboard' });
   }
 });
 

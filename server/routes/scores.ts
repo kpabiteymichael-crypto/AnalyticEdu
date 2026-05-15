@@ -4,7 +4,7 @@ import { scores, students, activityLogs, badges, studentBadges } from '../db/sch
 import { eq, desc, sql, and } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { getLevel } from '../lib/xp';
-import { getSettingJson, DEFAULT_XP_REWARDS, DEFAULT_LEVEL_THRESHOLDS, calculateScoreXPFromRewards, getLevelFromThresholds } from './settings';
+import { getSettingJson, DEFAULT_XP_REWARDS, DEFAULT_LEVEL_THRESHOLDS, calculateScoreXPFromRewards, getLevelFromThresholds, getRankBadgeBonusMultiplier } from './settings';
 import { z } from 'zod';
 
 const router = Router();
@@ -38,7 +38,17 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req: AuthRe
       getSettingJson('xp_rewards', DEFAULT_XP_REWARDS),
       getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
     ]);
-    const xpEarned = calculateScoreXPFromRewards(data.score, data.maxScore, xpRewards);
+    const baseXp = calculateScoreXPFromRewards(data.score, data.maxScore, xpRewards);
+
+    // Apply rank badge XP bonus based on student's current average score
+    const [avgResult] = await db.select({
+      avgPct: sql<number>`COALESCE(AVG(score / max_score * 100), 0)`,
+    }).from(scores).where(eq(scores.studentId, student.id));
+    const currentAvgPct = avgResult?.avgPct ?? 0;
+    const bonusMultiplier = getRankBadgeBonusMultiplier(currentAvgPct);
+    const bonusXp = Math.round(baseXp * bonusMultiplier);
+    const xpEarned = baseXp + bonusXp;
+
     const newXp = student.xp + xpEarned;
     const newLevel = getLevelFromThresholds(newXp, levelThresholds);
 
@@ -47,10 +57,11 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req: AuthRe
       .where(eq(students.id, student.id));
 
     // Log activity
+    const bonusNote = bonusXp > 0 ? ` (+${bonusXp} rank bonus)` : '';
     await db.insert(activityLogs).values({
       studentId: student.id,
       activityType: 'score_recorded',
-      description: `Scored ${data.score}/${data.maxScore} on ${data.assessmentName} (${data.subject})`,
+      description: `Scored ${data.score}/${data.maxScore} on ${data.assessmentName} (${data.subject})${bonusNote}`,
       xpEarned,
     });
 

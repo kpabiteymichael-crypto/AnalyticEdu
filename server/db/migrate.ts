@@ -175,5 +175,14 @@ export async function runMigrations() {
     );
   `);
 
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS class_subjects (
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      UNIQUE(class_id, subject)
+    );
+  `);
+
   console.log('Migrations completed successfully!');
 }

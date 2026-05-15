@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { settingsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target } from 'lucide-react';
 
 const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
+
+const DEFAULT_SUBJECT_MAX_MARKS: Record<string, number> = {
+  math: 100, science: 100, english: 100, history: 100,
+  art: 100, pe: 100, ict: 100, music: 100,
+};
 
 const DEFAULT_LEVEL_THRESHOLDS = [
   0, 100, 250, 500, 850, 1300, 1900, 2650, 3600, 4800,
@@ -28,22 +33,26 @@ type Toast = { type: 'success' | 'error'; message: string };
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects'>('levels');
+  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks'>('levels');
   const [toast, setToast] = useState<Toast | null>(null);
 
   const [levelThresholds, setLevelThresholds] = useState<number[]>(DEFAULT_LEVEL_THRESHOLDS);
   const [xpRewards, setXpRewards] = useState(DEFAULT_XP_REWARDS);
   const [subjectLabels, setSubjectLabels] = useState<Record<string, string>>(DEFAULT_SUBJECT_LABELS);
 
+  const [subjectMaxMarks, setSubjectMaxMarks] = useState<Record<string, number>>(DEFAULT_SUBJECT_MAX_MARKS);
+
   const [savingLevels, setSavingLevels] = useState(false);
   const [savingXp, setSavingXp] = useState(false);
   const [savingSubjects, setSavingSubjects] = useState(false);
+  const [savingMaxMarks, setSavingMaxMarks] = useState(false);
 
   useEffect(() => {
     settingsApi.get().then(data => {
       setLevelThresholds(data.levelThresholds ?? DEFAULT_LEVEL_THRESHOLDS);
       setXpRewards(data.xpRewards ?? DEFAULT_XP_REWARDS);
       setSubjectLabels(data.subjectLabels ?? DEFAULT_SUBJECT_LABELS);
+      setSubjectMaxMarks(data.subjectMaxMarks ?? DEFAULT_SUBJECT_MAX_MARKS);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -82,6 +91,18 @@ export default function Settings() {
     } finally { setSavingSubjects(false); }
   };
 
+  const handleSaveMaxMarks = async () => {
+    setSavingMaxMarks(true);
+    try {
+      await settingsApi.updateSubjectMaxMarks(subjectMaxMarks);
+      showToast('success', 'Subject max marks saved successfully');
+    } catch {
+      showToast('error', 'Failed to save subject max marks');
+    } finally { setSavingMaxMarks(false); }
+  };
+
+  const totalMaxMarks = Object.values(subjectMaxMarks).reduce((a, b) => a + b, 0);
+
   const updateThreshold = (index: number, value: string) => {
     const num = parseInt(value);
     if (isNaN(num)) return;
@@ -100,6 +121,7 @@ export default function Settings() {
     { id: 'levels' as const, label: 'Level Thresholds', icon: <Trophy size={16} /> },
     { id: 'xp' as const, label: 'Score XP Rewards', icon: <Zap size={16} /> },
     { id: 'subjects' as const, label: 'Subject Labels', icon: <BookOpen size={16} /> },
+    { id: 'maxmarks' as const, label: 'Max Marks', icon: <Target size={16} /> },
   ];
 
   return (
@@ -304,8 +326,89 @@ export default function Settings() {
 
           <div className="mt-4 p-3 bg-blue-50 rounded-xl">
             <p className="text-xs text-blue-700">
-              <strong>Note:</strong> These labels are used for display only. The underlying subject identifiers (math, science, etc.) remain unchanged in the database. Labels update immediately after saving.
+              <strong>Note:</strong> These labels are used for display only. The underlying subject identifiers (math, science, etc.) remain unchanged in the database.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Subject Max Marks */}
+      {activeTab === 'maxmarks' && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Subject Max Marks</h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Set the maximum obtainable marks per subject for the leaderboard.
+                  Overall max = <strong>{totalMaxMarks}</strong> total marks.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setSubjectMaxMarks(DEFAULT_SUBJECT_MAX_MARKS)} className="btn-secondary flex items-center gap-2 text-sm">
+                  <RotateCcw size={14} /> Reset
+                </button>
+                <button onClick={handleSaveMaxMarks} disabled={savingMaxMarks} className="btn-primary flex items-center gap-2 text-sm">
+                  <Save size={14} /> {savingMaxMarks ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {SUBJECT_KEYS.map(key => (
+                <div key={key} className="flex items-center gap-4 bg-slate-50 rounded-xl p-4">
+                  <div className="w-20 text-xs font-bold text-slate-500 uppercase tracking-wider">{key}</div>
+                  <input
+                    type="number" min={1}
+                    value={subjectMaxMarks[key] ?? 100}
+                    onChange={e => {
+                      const v = parseInt(e.target.value);
+                      if (!isNaN(v) && v > 0) setSubjectMaxMarks(prev => ({ ...prev, [key]: v }));
+                    }}
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-900 bg-white text-center focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <span className="text-slate-400 text-sm">marks</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="p-3 bg-primary-50 rounded-xl text-center">
+                <div className="text-2xl font-black text-primary-700">{totalMaxMarks}</div>
+                <div className="text-xs text-primary-600 mt-0.5">Total overall max marks</div>
+              </div>
+              <div className="p-3 bg-amber-50 rounded-xl text-center">
+                <div className="text-2xl font-black text-amber-700">{SUBJECT_KEYS.length}</div>
+                <div className="text-xs text-amber-600 mt-0.5">Subjects configured</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rank badge XP bonus table */}
+          <div className="card">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Rank Badge XP Bonuses</h2>
+            <p className="text-sm text-slate-500 mb-5">
+              Students who maintain high performance receive automatic bonus XP on every score they record.
+            </p>
+            <div className="space-y-3">
+              {[
+                { badge: '💎 Diamond Gem', pct: '≥ 95%', bonus: '+10% XP', bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700' },
+                { badge: '🥇 Golden Ticket', pct: '≥ 85%', bonus: '+5% XP', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
+                { badge: '🎫 Ticket', pct: '≥ 70%', bonus: '+3% XP', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+                { badge: '⭐ Star', pct: '≥ 50%', bonus: '+2% XP', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' },
+              ].map(r => (
+                <div key={r.badge} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${r.bg} ${r.border}`}>
+                  <span className={`font-semibold text-sm ${r.text}`}>{r.badge}</span>
+                  <span className="text-xs text-slate-500">{r.pct} average</span>
+                  <span className={`text-sm font-black ${r.text}`}>{r.bonus}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-slate-50 rounded-xl">
+              <p className="text-xs text-slate-500">
+                <strong>How it works:</strong> When a student records a new score, the system checks their current overall average. If they're in a badge tier, the bonus percentage is automatically added on top of their base XP reward. For example, a Diamond student scoring 95/100 earns 100 base XP × 1.10 = 110 XP.
+              </p>
+            </div>
           </div>
         </div>
       )}

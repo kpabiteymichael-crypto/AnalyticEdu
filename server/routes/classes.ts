@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { db } from '../db/index';
-import { classes, students, users } from '../db/schema';
-import { eq, sql, isNull } from 'drizzle-orm';
+import { classes, students, users, classSubjects } from '../db/schema';
+import { eq, sql, isNull, and } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth';
 import { z } from 'zod';
+
+const ALL_SUBJECTS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
 
 const router = Router();
 
@@ -83,6 +85,41 @@ router.get('/:id/students', authenticate, authorize('admin', 'teacher'), async (
   }
 });
 
+// GET /api/classes/:id/subjects — get subjects for a class
+router.get('/:id/subjects', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const classId = parseInt(req.params.id);
+    const rows = await db.select({ subject: classSubjects.subject })
+      .from(classSubjects).where(eq(classSubjects.classId, classId));
+    const subjects = rows.map(r => r.subject);
+    // If no subjects configured, return all subjects (default)
+    return res.json(subjects.length > 0 ? subjects : ALL_SUBJECTS);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to fetch class subjects' });
+  }
+});
+
+// PUT /api/classes/:id/subjects — replace all subjects for a class
+router.put('/:id/subjects', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const classId = parseInt(req.params.id);
+    const { subjects } = z.object({
+      subjects: z.array(z.string()).min(1),
+    }).parse(req.body);
+
+    await db.delete(classSubjects).where(eq(classSubjects.classId, classId));
+    if (subjects.length > 0) {
+      await db.insert(classSubjects).values(subjects.map(s => ({ classId, subject: s })));
+    }
+    return res.json({ success: true, subjects });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to update class subjects' });
+  }
+});
+
 // POST /api/classes — create a class
 router.post('/', authenticate, authorize('admin', 'teacher'), async (req, res) => {
   try {
@@ -91,6 +128,7 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req, res) =
       grade: z.number().int().min(1).max(13),
       teacherId: z.number().int().optional(),
       academicYear: z.string().default('2024-2025'),
+      subjects: z.array(z.string()).optional(),
     }).parse(req.body);
 
     // If no teacherId, use a default teacher (first teacher user)
@@ -108,7 +146,11 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req, res) =
       academicYear: data.academicYear,
     }).returning();
 
-    return res.status(201).json(newClass);
+    // Set subjects (default to all if not specified)
+    const subjectsToSet = data.subjects ?? ALL_SUBJECTS;
+    await db.insert(classSubjects).values(subjectsToSet.map(s => ({ classId: newClass.id, subject: s })));
+
+    return res.status(201).json({ ...newClass, subjects: subjectsToSet });
   } catch (err: any) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     console.error(err);

@@ -307,4 +307,57 @@ router.get('/summary/overview', authenticate, authorize('admin', 'teacher'), asy
   }
 });
 
+// POST /api/students/bulk-import
+router.post('/bulk-import', authenticate, authorize('admin', 'teacher'), async (req, res) => {
+  try {
+    const rows = z.array(z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      password: z.string().min(4),
+      grade: z.number().int().min(1).max(13),
+      classId: z.number().int().optional().nullable(),
+    })).min(1).max(200).parse(req.body);
+
+    const results: { success: boolean; name: string; email: string; error?: string }[] = [];
+
+    for (const row of rows) {
+      try {
+        const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, row.email)).limit(1);
+        if (existing.length > 0) {
+          results.push({ success: false, name: row.name, email: row.email, error: 'Email already exists' });
+          continue;
+        }
+        const passwordHash = await bcrypt.hash(row.password, 10);
+        const [newUser] = await db.insert(users).values({
+          name: row.name,
+          email: row.email,
+          passwordHash,
+          role: 'student',
+        }).returning();
+
+        const studentCode = `STU${String(newUser.id).padStart(4, '0')}`;
+        await db.insert(students).values({
+          userId: newUser.id,
+          studentCode,
+          grade: row.grade,
+          classId: row.classId ?? null,
+          xp: 0,
+          level: 1,
+        });
+
+        results.push({ success: true, name: row.name, email: row.email });
+      } catch (err: any) {
+        results.push({ success: false, name: row.name, email: row.email, error: err.message });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    return res.status(201).json({ imported: successCount, total: rows.length, results });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    console.error(err);
+    return res.status(500).json({ error: 'Bulk import failed' });
+  }
+});
+
 export default router;

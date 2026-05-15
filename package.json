@@ -23,6 +23,7 @@
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { studentsApi, authApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Users, Search, ChevronRight, Star, Flame, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle, ChevronDown, ChevronUp, LayoutGrid, Layers } from 'lucide-react';
+import { Users, Search, ChevronRight, Star, Flame, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle, ChevronDown, ChevronUp, LayoutGrid, Layers, Upload, Download, FileSpreadsheet } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
+import * as XLSX from 'xlsx';
 
 type Toast = { type: 'success' | 'error'; message: string };
+type ImportRow = { name: string; email: string; password: string; grade: number; classId?: number | null; _error?: string };
 
 const emptyForm = { name: '', email: '', password: '', grade: 7, classId: '' };
 
@@ -188,6 +190,70 @@ export default function Students() {
     setShowEdit(s);
   };
 
+  // ─── Bulk Import ────────────────────────────────────────
+  const [showImport, setShowImport] = useState(false);
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importResult, setImportResult] = useState<any | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Name', 'Email', 'Password', 'Grade', 'ClassId (optional)'],
+      ['Alice Smith', 'alice@school.com', 'alice123', 7, ''],
+      ['Bob Jones', 'bob@school.com', 'bob1234', 8, ''],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Students');
+    XLSX.writeFile(wb, 'student_import_template.xlsx');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        if (raw.length < 2) { showToast('error', 'File is empty or has no data rows'); return; }
+        const rows: ImportRow[] = raw.slice(1)
+          .filter(r => r[0] || r[1])
+          .map(r => ({
+            name: String(r[0] ?? '').trim(),
+            email: String(r[1] ?? '').trim().toLowerCase(),
+            password: String(r[2] ?? '').trim(),
+            grade: parseInt(r[3]) || 7,
+            classId: r[4] ? parseInt(r[4]) || null : null,
+            _error: !r[0] ? 'Missing name' : !r[1] ? 'Missing email' : !r[2] ? 'Missing password' : undefined,
+          }));
+        setImportRows(rows);
+        setImportResult(null);
+      } catch { showToast('error', 'Could not parse file. Please use the provided template.'); }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const handleImport = async () => {
+    const valid = importRows.filter(r => !r._error);
+    if (!valid.length) return;
+    setImporting(true);
+    try {
+      const result = await studentsApi.bulkImport(valid.map(({ _error, ...r }) => r));
+      setImportResult(result);
+      if (result.imported > 0) {
+        const updated = await studentsApi.list();
+        setStudents(updated);
+        showToast('success', `Imported ${result.imported} of ${result.total} students`);
+      }
+    } catch (err: any) {
+      showToast('error', err.response?.data?.error ?? 'Import failed');
+    } finally { setImporting(false); }
+  };
+
   if (loading) return <LoadingSpinner text="Loading students..." />;
 
   const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
@@ -219,12 +285,20 @@ export default function Students() {
           <h1 className="page-title">Students</h1>
           <p className="page-subtitle">{students.length} students enrolled</p>
         </div>
-        <button
-          onClick={() => { setForm(emptyForm); setShowCreate(true); }}
-          className="btn-primary flex items-center gap-2 self-start"
-        >
-          <Plus size={18} /> Add Student
-        </button>
+        <div className="flex gap-2 self-start">
+          <button
+            onClick={() => { setImportRows([]); setImportResult(null); setShowImport(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-sm font-semibold transition-all"
+          >
+            <Upload size={16} /> Import Excel
+          </button>
+          <button
+            onClick={() => { setForm(emptyForm); setShowCreate(true); }}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={18} /> Add Student
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -456,6 +530,121 @@ export default function Students() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* Bulk Import Modal */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => { if (!importing) setShowImport(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-fade-in max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <FileSpreadsheet size={22} className="text-emerald-600" />
+                <h3 className="text-lg font-bold text-slate-900">Bulk Import Students</h3>
+              </div>
+              <button onClick={() => setShowImport(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {!importResult ? (
+                <>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Upload an Excel (.xlsx) or CSV file with student data. Each row becomes one student account.
+                  </p>
+
+                  <div className="flex gap-3 mb-6">
+                    <button onClick={downloadTemplate}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition-all">
+                      <Download size={15} /> Download Template
+                    </button>
+                    <button onClick={() => fileRef.current?.click()}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary-200 bg-primary-50 text-primary-700 text-sm font-semibold hover:bg-primary-100 transition-all">
+                      <Upload size={15} /> Choose File
+                    </button>
+                    <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
+                  </div>
+
+                  {/* Column legend */}
+                  <div className="bg-slate-50 rounded-xl p-3 mb-4 text-xs text-slate-600">
+                    <strong>Required columns:</strong> Name, Email, Password, Grade (1–13)
+                    <span className="mx-2 text-slate-300">|</span>
+                    <strong>Optional:</strong> ClassId (numeric team ID from Teams page)
+                  </div>
+
+                  {importRows.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-slate-700">{importRows.length} rows detected</span>
+                        <span className="text-xs text-slate-400">
+                          {importRows.filter(r => !r._error).length} valid · {importRows.filter(r => r._error).length} errors
+                        </span>
+                      </div>
+                      <div className="border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-slate-50 sticky top-0">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-semibold text-slate-500">Name</th>
+                              <th className="px-3 py-2 text-left font-semibold text-slate-500">Email</th>
+                              <th className="px-3 py-2 text-center font-semibold text-slate-500">Grade</th>
+                              <th className="px-3 py-2 text-center font-semibold text-slate-500">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importRows.map((r, i) => (
+                              <tr key={i} className={clsx('border-t border-slate-100', r._error ? 'bg-red-50' : '')}>
+                                <td className="px-3 py-2 font-medium text-slate-900">{r.name || '—'}</td>
+                                <td className="px-3 py-2 text-slate-500">{r.email || '—'}</td>
+                                <td className="px-3 py-2 text-center">{r.grade}</td>
+                                <td className="px-3 py-2 text-center">
+                                  {r._error
+                                    ? <span className="text-red-600 font-semibold">{r._error}</span>
+                                    : <span className="text-emerald-600 font-semibold">✓ Ready</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${importResult.imported > 0 ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+                    {importResult.imported > 0 ? <CheckCircle size={32} className="text-emerald-600" /> : <AlertCircle size={32} className="text-amber-600" />}
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-900 mb-1">Import Complete</h4>
+                  <p className="text-slate-600 mb-4">
+                    <strong>{importResult.imported}</strong> of <strong>{importResult.total}</strong> students imported successfully.
+                  </p>
+                  {importResult.results?.filter((r: any) => !r.success).length > 0 && (
+                    <div className="border border-red-200 rounded-xl overflow-hidden mb-4 max-h-40 overflow-y-auto text-left">
+                      {importResult.results.filter((r: any) => !r.success).map((r: any, i: number) => (
+                        <div key={i} className="px-3 py-2 border-b border-red-100 last:border-0 bg-red-50">
+                          <span className="font-semibold text-red-700">{r.name}</span>
+                          <span className="text-red-500 ml-2 text-xs">{r.error}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex gap-3 flex-shrink-0">
+              <button onClick={() => setShowImport(false)} className="flex-1 btn-secondary">
+                {importResult ? 'Close' : 'Cancel'}
+              </button>
+              {!importResult && (
+                <button
+                  onClick={handleImport}
+                  disabled={importing || importRows.filter(r => !r._error).length === 0}
+                  className="flex-1 btn-primary disabled:opacity-40"
+                >
+                  {importing ? 'Importing...' : `Import ${importRows.filter(r => !r._error).length} Students`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}

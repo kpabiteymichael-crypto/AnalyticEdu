@@ -1,11 +1,12 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useClass } from '../context/ClassContext';
 import { useState, useEffect } from 'react';
 import { notificationsApi } from '../lib/api';
 import {
   LayoutDashboard, Users, BarChart3, Trophy, Brain,
   FileText, LogOut, Bell, GraduationCap, Star, Menu, X,
-  ClipboardList, Users2, ChevronRight, Settings
+  ClipboardList, Users2, ChevronRight, Settings, ChevronDown
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -28,10 +29,12 @@ const navItems: NavItem[] = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { activeClass, classes: teacherClasses, setActiveClassId } = useClass();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showClassPicker, setShowClassPicker] = useState(false);
 
   useEffect(() => {
     notificationsApi.list().then(setNotifications).catch(() => {});
@@ -166,6 +169,44 @@ export default function Layout() {
           </button>
 
           <div className="flex-1" />
+
+          {/* Teacher class selector */}
+          {user?.role === 'teacher' && teacherClasses.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowClassPicker(p => !p)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 transition-all shadow-sm"
+              >
+                <GraduationCap size={15} className="text-primary-600" />
+                <span className="hidden sm:inline max-w-32 truncate">{activeClass?.name ?? 'Select Class'}</span>
+                <ChevronDown size={13} className="text-slate-400" />
+              </button>
+              {showClassPicker && (
+                <div className="absolute right-0 top-10 z-50 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 min-w-48 animate-fade-in">
+                  <div className="px-3 pb-2 pt-1 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Classes</div>
+                  {teacherClasses.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => { setActiveClassId(c.id); setShowClassPicker(false); }}
+                      className={clsx(
+                        'w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-slate-50 transition-colors',
+                        activeClass?.id === c.id ? 'text-primary-700 font-semibold bg-primary-50' : 'text-slate-700'
+                      )}
+                    >
+                      <div className="w-6 h-6 grad-primary rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                        {c.name?.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-semibold">{c.name}</div>
+                        <div className="text-xs text-slate-400">Grade {c.grade} · {c.studentCount} students</div>
+                      </div>
+                      {activeClass?.id === c.id && <span className="ml-auto text-primary-500 text-xs">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Notifications */}
           <div className="relative">

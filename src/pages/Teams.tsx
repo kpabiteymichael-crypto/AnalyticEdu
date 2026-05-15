@@ -3,9 +3,15 @@ import { teamsApi, studentsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   Users, Plus, Pencil, Trash2, X, CheckCircle, AlertCircle,
-  ChevronDown, Star, Flame, UserPlus, UserMinus, MoveRight, GraduationCap, Search
+  ChevronDown, Star, Flame, UserPlus, UserMinus, MoveRight, GraduationCap, Search, BookOpen, Save
 } from 'lucide-react';
 import clsx from 'clsx';
+
+const ALL_SUBJECTS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
+const SUBJECT_LABELS: Record<string, string> = {
+  math: 'Mathematics', science: 'Science', english: 'English', history: 'History',
+  art: 'Art', pe: 'Physical Education', ict: 'ICT', music: 'Music',
+};
 
 type Toast = { type: 'success' | 'error'; message: string };
 
@@ -51,6 +57,12 @@ export default function Teams() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Subject management
+  const [teamSubjects, setTeamSubjects] = useState<string[]>(ALL_SUBJECTS);
+  const [subjectDraft, setSubjectDraft] = useState<string[]>(ALL_SUBJECTS);
+  const [savingSubjects, setSavingSubjects] = useState(false);
+  const [subjectsDirty, setSubjectsDirty] = useState(false);
+
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
@@ -74,11 +86,38 @@ export default function Teams() {
   const loadTeamStudents = async (team: any) => {
     setTeamLoading(true);
     setSelectedTeam(team);
+    setSubjectsDirty(false);
     try {
-      const s = await teamsApi.students(team.id);
+      const [s, subs] = await Promise.all([
+        teamsApi.students(team.id),
+        teamsApi.getSubjects(team.id).catch(() => ALL_SUBJECTS),
+      ]);
       setTeamStudents(s);
+      setTeamSubjects(subs);
+      setSubjectDraft(subs);
     } catch { setTeamStudents([]); }
     finally { setTeamLoading(false); }
+  };
+
+  const handleSaveSubjects = async () => {
+    if (!selectedTeam) return;
+    setSavingSubjects(true);
+    try {
+      await teamsApi.updateSubjects(selectedTeam.id, subjectDraft);
+      setTeamSubjects(subjectDraft);
+      setSubjectsDirty(false);
+      showToast('success', 'Subjects updated successfully');
+    } catch {
+      showToast('error', 'Failed to update subjects');
+    } finally { setSavingSubjects(false); }
+  };
+
+  const toggleSubject = (sub: string) => {
+    setSubjectDraft(prev => {
+      const next = prev.includes(sub) ? prev.filter(s => s !== sub) : [...prev, sub];
+      setSubjectsDirty(JSON.stringify([...next].sort()) !== JSON.stringify([...teamSubjects].sort()));
+      return next;
+    });
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -363,6 +402,75 @@ export default function Teams() {
               <GraduationCap size={36} className="text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 font-semibold">Select a team to manage it</p>
               <p className="text-slate-400 text-sm mt-1">Click any team on the left to view and manage its students</p>
+            </div>
+          )}
+
+          {/* Subject management for selected team */}
+          {selectedTeam && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BookOpen size={18} className="text-primary-600" />
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Class Subjects</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Toggle which subjects are active for <strong>{selectedTeam.name}</strong>
+                    </p>
+                  </div>
+                </div>
+                {subjectsDirty && (
+                  <button
+                    onClick={handleSaveSubjects}
+                    disabled={savingSubjects || subjectDraft.length === 0}
+                    className="btn-primary text-sm flex items-center gap-2 disabled:opacity-40"
+                  >
+                    <Save size={14} /> {savingSubjects ? 'Saving...' : 'Save Changes'}
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {ALL_SUBJECTS.map(sub => {
+                  const active = subjectDraft.includes(sub);
+                  return (
+                    <button
+                      key={sub}
+                      onClick={() => toggleSubject(sub)}
+                      className={clsx(
+                        'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-sm font-semibold transition-all',
+                        active
+                          ? 'border-primary-400 bg-primary-50 text-primary-700 shadow-sm shadow-primary-100'
+                          : 'border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300'
+                      )}
+                    >
+                      <span className="text-xl">{
+                        sub === 'math' ? '📐' : sub === 'science' ? '🔬' : sub === 'english' ? '📖' :
+                        sub === 'history' ? '🏛️' : sub === 'art' ? '🎨' : sub === 'pe' ? '⚽' :
+                        sub === 'ict' ? '💻' : '🎵'
+                      }</span>
+                      <span className="text-xs text-center leading-tight">{SUBJECT_LABELS[sub]}</span>
+                      <span className={clsx(
+                        'w-3 h-3 rounded-full border-2 mt-0.5',
+                        active ? 'bg-primary-500 border-primary-500' : 'bg-white border-slate-300'
+                      )} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {subjectDraft.length === 0 && (
+                <p className="text-xs text-red-500 mt-2 text-center">At least one subject must be selected.</p>
+              )}
+
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>{subjectDraft.length} of {ALL_SUBJECTS.length} subjects active</span>
+                <button
+                  onClick={() => { setSubjectDraft(ALL_SUBJECTS); setSubjectsDirty(JSON.stringify([...ALL_SUBJECTS].sort()) !== JSON.stringify([...teamSubjects].sort())); }}
+                  className="text-primary-600 hover:text-primary-700 font-semibold"
+                >
+                  Select all
+                </button>
+              </div>
             </div>
           )}
 

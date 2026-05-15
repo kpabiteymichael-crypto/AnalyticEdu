@@ -180,3 +180,16 @@ export const studentBadgesRelations = relations(studentBadges, ({ one }) => ({
   student: one(students, { fields: [studentBadges.studentId], references: [students.id] }),
   badge: one(badges, { fields: [studentBadges.badgeId], references: [badges.id] }),
 }));
+
+// ─── Class Subjects ───────────────────────────────────────
+export const classSubjects = pgTable('class_subjects', {
+  id: serial('id').primaryKey(),
+  classId: integer('class_id').notNull().references(() => classes.id, { onDelete: 'cascade' }),
+  subject: text('subject').notNull(),
+}, (t) => ({
+  uniqueClassSubject: uniqueIndex('class_subject_unique').on(t.classId, t.subject),
+}));
+
+export const classSubjectsRelations = relations(classSubjects, ({ one }) => ({
+  class: one(classes, { fields: [classSubjects.classId], references: [classes.id] }),
+}));

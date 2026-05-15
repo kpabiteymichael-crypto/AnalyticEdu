@@ -47,6 +47,7 @@ export const studentsApi = {
   delete: (id: number) => api.delete(`/students/${id}`).then(r => r.data),
   activity: (id: number) => api.get(`/students/${id}/activity`).then(r => r.data),
   overview: () => api.get('/students/summary/overview').then(r => r.data),
+  bulkImport: (rows: any[]) => api.post('/students/bulk-import', rows).then(r => r.data),
 };
 
 // ─── Scores ───────────────────────────────────────────────
@@ -62,6 +63,7 @@ export const scoresApi = {
 // ─── Rankings ─────────────────────────────────────────────
 export const rankingsApi = {
   leaderboard: () => api.get('/rankings/leaderboard').then(r => r.data),
+  subjectLeaderboard: (subject: string) => api.get(`/rankings/leaderboard/subject/${subject}`).then(r => r.data),
   byStudent: (id: number) => api.get(`/rankings/student/${id}`).then(r => r.data),
 };
 
@@ -114,7 +116,7 @@ export const teamsApi = {
   list: () => api.get('/classes').then(r => r.data),
   unassigned: () => api.get('/classes/unassigned').then(r => r.data),
   students: (id: number) => api.get(`/classes/${id}/students`).then(r => r.data),
-  create: (data: { name: string; grade: number; teacherId?: number }) =>
+  create: (data: { name: string; grade: number; teacherId?: number; subjects?: string[] }) =>
     api.post('/classes', data).then(r => r.data),
   update: (id: number, data: { name?: string; grade?: number; teacherId?: number }) =>
     api.put(`/classes/${id}`, data).then(r => r.data),
@@ -123,6 +125,9 @@ export const teamsApi = {
     api.post(`/classes/${id}/assign`, { studentId }).then(r => r.data),
   removeStudent: (id: number, studentId: number) =>
     api.delete(`/classes/${id}/students/${studentId}`).then(r => r.data),
+  getSubjects: (id: number) => api.get(`/classes/${id}/subjects`).then(r => r.data),
+  updateSubjects: (id: number, subjects: string[]) =>
+    api.put(`/classes/${id}/subjects`, { subjects }).then(r => r.data),
 };
 
 // ─── Settings ─────────────────────────────────────────────
@@ -130,6 +135,8 @@ export const settingsApi = {
   get: () => api.get('/settings').then(r => r.data),
   updateLevelThresholds: (thresholds: number[]) =>
     api.put('/settings/level-thresholds', { thresholds }).then(r => r.data),
+  updateSubjectMaxMarks: (marks: Record<string, number>) =>
+    api.put('/settings/subject-max-marks', { marks }).then(r => r.data),
   updateXpRewards: (rewards: { minPct: number; xp: number }[]) =>
     api.put('/settings/xp-rewards', { rewards }).then(r => r.data),
   updateSubjectLabels: (labels: Record<string, string>) =>
