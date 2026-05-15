@@ -20,6 +20,7 @@ import parentRoutes from './routes/parents';
 import reportRoutes from './routes/reports';
 import notificationRoutes from './routes/notifications';
 import settingsRoutes from './routes/settings';
+import classRoutes from './routes/classes';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,6 +61,7 @@ app.use('/api/parents', parentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/classes', classRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

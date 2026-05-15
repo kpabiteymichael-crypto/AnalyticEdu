@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Leaderboard', to: '/leaderboard', icon: <Trophy size={18} />, roles: ['admin', 'teacher', 'student'] },
   { label: 'Badges', to: '/badges', icon: <Star size={18} />, roles: ['admin', 'teacher', 'student'] },
   { label: 'Parent Portal', to: '/parent-portal', icon: <Users2 size={18} />, roles: ['parent', 'admin'] },
+  { label: 'Teams', to: '/teams', icon: <Users size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Settings', to: '/settings', icon: <Settings size={18} />, roles: ['admin', 'teacher'] },
 ];
 

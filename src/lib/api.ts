@@ -109,6 +109,22 @@ export const notificationsApi = {
   markAllRead: () => api.patch('/notifications/read-all').then(r => r.data),
 };
 
+// ─── Teams / Classes ──────────────────────────────────────
+export const teamsApi = {
+  list: () => api.get('/classes').then(r => r.data),
+  unassigned: () => api.get('/classes/unassigned').then(r => r.data),
+  students: (id: number) => api.get(`/classes/${id}/students`).then(r => r.data),
+  create: (data: { name: string; grade: number; teacherId?: number }) =>
+    api.post('/classes', data).then(r => r.data),
+  update: (id: number, data: { name?: string; grade?: number; teacherId?: number }) =>
+    api.put(`/classes/${id}`, data).then(r => r.data),
+  delete: (id: number) => api.delete(`/classes/${id}`).then(r => r.data),
+  assignStudent: (id: number, studentId: number) =>
+    api.post(`/classes/${id}/assign`, { studentId }).then(r => r.data),
+  removeStudent: (id: number, studentId: number) =>
+    api.delete(`/classes/${id}/students/${studentId}`).then(r => r.data),
+};
+
 // ─── Settings ─────────────────────────────────────────────
 export const settingsApi = {
   get: () => api.get('/settings').then(r => r.data),

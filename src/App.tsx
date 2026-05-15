@@ -15,6 +15,7 @@ import ParentPortal from './pages/ParentPortal';
 import StudentDetail from './pages/StudentDetail';
 import Badges from './pages/Badges';
 import Settings from './pages/Settings';
+import Teams from './pages/Teams';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -91,6 +92,11 @@ export default function App() {
             <Route path="settings" element={
               <ProtectedRoute roles={['admin', 'teacher']}>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="teams" element={
+              <ProtectedRoute roles={['admin', 'teacher']}>
+                <Teams />
               </ProtectedRoute>
             } />
             <Route path="leaderboard" element={<Leaderboard />} />
