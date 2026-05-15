@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useClass } from '../context/ClassContext';
 import { useState, useEffect } from 'react';
@@ -28,10 +28,39 @@ const navItems: NavItem[] = [
   { label: 'Settings', to: '/settings', icon: <Settings size={18} />, roles: ['admin', 'teacher'] },
 ];
 
+// Bottom navigation items per role (most important 4-5 for thumb reach)
+const bottomNavItems: Record<string, { label: string; to: string; icon: React.ReactNode }[]> = {
+  student: [
+    { label: 'Dashboard', to: '/dashboard',   icon: <LayoutDashboard size={20} /> },
+    { label: 'Leaderboard', to: '/leaderboard', icon: <Trophy size={20} /> },
+    { label: 'Badges',     to: '/badges',      icon: <Star size={20} /> },
+  ],
+  teacher: [
+    { label: 'Overview',   to: '/admin',         icon: <LayoutDashboard size={20} /> },
+    { label: 'Students',   to: '/students',      icon: <Users size={20} /> },
+    { label: 'Scores',     to: '/scores/entry',  icon: <ClipboardList size={20} /> },
+    { label: 'Analytics',  to: '/analytics',     icon: <BarChart3 size={20} /> },
+    { label: 'Leaderboard',to: '/leaderboard',   icon: <Trophy size={20} /> },
+  ],
+  admin: [
+    { label: 'Overview',   to: '/admin',         icon: <LayoutDashboard size={20} /> },
+    { label: 'Students',   to: '/students',      icon: <Users size={20} /> },
+    { label: 'Scores',     to: '/scores/entry',  icon: <ClipboardList size={20} /> },
+    { label: 'Analytics',  to: '/analytics',     icon: <BarChart3 size={20} /> },
+    { label: 'Leaderboard',to: '/leaderboard',   icon: <Trophy size={20} /> },
+  ],
+  parent: [
+    { label: 'Portal',     to: '/parent-portal', icon: <Users2 size={20} /> },
+    { label: 'Leaderboard',to: '/leaderboard',   icon: <Trophy size={20} /> },
+    { label: 'Badges',     to: '/badges',        icon: <Star size={20} /> },
+  ],
+};
+
 export default function Layout() {
   const { user, logout, updateUser } = useAuth();
   const { activeClass, classes: teacherClasses, setActiveClassId } = useClass();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -87,6 +116,7 @@ export default function Layout() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const userNav = navItems.filter(n => user && n.roles.includes(user.role));
+  const mobileNav = user ? (bottomNavItems[user.role] ?? []) : [];
 
   const handleLogout = () => {
     logout();
@@ -405,11 +435,43 @@ export default function Layout() {
           )}
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+        {/* Page Content — extra bottom padding on mobile for the bottom nav */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 mobile-main-padding lg:pb-8">
           <Outlet />
         </main>
       </div>
+
+      {/* ── Mobile Bottom Navigation ─────────────────────────────────────── */}
+      {mobileNav.length > 0 && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 shadow-2xl bottom-nav-safe">
+          <div className={`grid h-16`} style={{ gridTemplateColumns: `repeat(${mobileNav.length}, 1fr)` }}>
+            {mobileNav.map(item => {
+              const isActive = location.pathname === item.to ||
+                (item.to !== '/' && location.pathname.startsWith(item.to));
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className="flex flex-col items-center justify-center gap-0.5 py-2 transition-all duration-150 relative"
+                >
+                  <span className={clsx(
+                    'flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-150',
+                    isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-200' : 'text-slate-400'
+                  )}>
+                    {item.icon}
+                  </span>
+                  <span className={clsx(
+                    'text-[10px] font-semibold leading-none',
+                    isActive ? 'text-primary-600' : 'text-slate-400'
+                  )}>
+                    {item.label}
+                  </span>
+                </NavLink>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

@@ -1,22 +1,37 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ClassProvider } from './context/ClassContext';
 import Layout from './components/Layout';
+import LoadingSpinner from './components/LoadingSpinner';
+
+// ── Eagerly loaded (on the critical path) ────────────────────────────────────
 import Login from './pages/Login';
 import Register from './pages/Register';
-import StudentDashboard from './pages/StudentDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import Leaderboard from './pages/Leaderboard';
-import Analytics from './pages/Analytics';
-import Students from './pages/Students';
-import ScoreEntry from './pages/ScoreEntry';
-import Reports from './pages/Reports';
-import Predictions from './pages/Predictions';
-import ParentPortal from './pages/ParentPortal';
-import StudentDetail from './pages/StudentDetail';
-import Badges from './pages/Badges';
-import Settings from './pages/Settings';
-import Teams from './pages/Teams';
+
+// ── Lazily loaded (code-split per route) ─────────────────────────────────────
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const AdminDashboard   = lazy(() => import('./pages/AdminDashboard'));
+const Leaderboard      = lazy(() => import('./pages/Leaderboard'));
+const Analytics        = lazy(() => import('./pages/Analytics'));
+const Students         = lazy(() => import('./pages/Students'));
+const ScoreEntry       = lazy(() => import('./pages/ScoreEntry'));
+const Reports          = lazy(() => import('./pages/Reports'));
+const Predictions      = lazy(() => import('./pages/Predictions'));
+const ParentPortal     = lazy(() => import('./pages/ParentPortal'));
+const StudentDetail    = lazy(() => import('./pages/StudentDetail'));
+const Badges           = lazy(() => import('./pages/Badges'));
+const Settings         = lazy(() => import('./pages/Settings'));
+const Teams            = lazy(() => import('./pages/Teams'));
+
+// ── Shared page-level loading fallback ───────────────────────────────────────
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center min-h-96">
+      <LoadingSpinner />
+    </div>
+  );
+}
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -45,73 +60,94 @@ export default function App() {
   return (
     <AuthProvider>
       <ClassProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route index element={<HomeRedirect />} />
-            <Route path="dashboard" element={
-              <ProtectedRoute roles={['student']}>
-                <StudentDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="admin" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="students" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <Students />
-              </ProtectedRoute>
-            } />
-            <Route path="students/:id" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <StudentDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="scores/entry" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <ScoreEntry />
-              </ProtectedRoute>
-            } />
-            <Route path="analytics" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <Analytics />
-              </ProtectedRoute>
-            } />
-            <Route path="predictions" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <Predictions />
-              </ProtectedRoute>
-            } />
-            <Route path="reports" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <Reports />
-              </ProtectedRoute>
-            } />
-            <Route path="settings" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="teams" element={
-              <ProtectedRoute roles={['admin', 'teacher']}>
-                <Teams />
-              </ProtectedRoute>
-            } />
-            <Route path="leaderboard" element={<Leaderboard />} />
-            <Route path="badges" element={<Badges />} />
-            <Route path="parent-portal" element={
-              <ProtectedRoute roles={['parent', 'admin']}>
-                <ParentPortal />
-              </ProtectedRoute>
-            } />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+        <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login"    element={<Login />} />
+              <Route path="/register" element={<Register />} />
+
+              <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route index element={<HomeRedirect />} />
+
+                <Route path="dashboard" element={
+                  <ProtectedRoute roles={['student']}>
+                    <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="admin" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><AdminDashboard /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="students" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><Students /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="students/:id" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><StudentDetail /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="scores/entry" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><ScoreEntry /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="analytics" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><Analytics /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="predictions" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><Predictions /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="reports" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><Reports /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="settings" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><Settings /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="teams" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><Teams /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="leaderboard" element={
+                  <Suspense fallback={<PageLoader />}><Leaderboard /></Suspense>
+                } />
+
+                <Route path="badges" element={
+                  <Suspense fallback={<PageLoader />}><Badges /></Suspense>
+                } />
+
+                <Route path="parent-portal" element={
+                  <ProtectedRoute roles={['parent', 'admin']}>
+                    <Suspense fallback={<PageLoader />}><ParentPortal /></Suspense>
+                  </ProtectedRoute>
+                } />
+              </Route>
+
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
       </ClassProvider>
     </AuthProvider>
   );
