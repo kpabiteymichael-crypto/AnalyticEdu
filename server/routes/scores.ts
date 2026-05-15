@@ -281,34 +281,35 @@ router.get('/analytics/monthly-trend', authenticate, authorize('admin', 'teacher
 
 // ─── Reset Endpoints ──────────────────────────────────────
 
-// POST /api/scores/reset/student/:id  — delete all scores + reset XP/level for one student
+// POST /api/scores/reset/student/:id  — delete all scores + reset XP/level/badges/streak for one student
 router.post('/reset/student/:id', authenticate, authorize('admin', 'teacher'), async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     const [student] = await db.select().from(students).where(eq(students.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
-    const [levelThresholds] = await Promise.all([
-      getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
-    ]);
+    const levelThresholds = await getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS);
 
     await db.delete(scores).where(eq(scores.studentId, studentId));
-    await db.update(students).set({ xp: 0, level: getLevelFromThresholds(0, levelThresholds) }).where(eq(students.id, studentId));
+    await db.delete(studentBadges).where(eq(studentBadges.studentId, studentId));
+    await db.update(students)
+      .set({ xp: 0, level: getLevelFromThresholds(0, levelThresholds), streakDays: 0 })
+      .where(eq(students.id, studentId));
     await db.insert(activityLogs).values({
       studentId,
       activityType: 'reset',
-      description: 'All scores and XP reset to zero',
+      description: 'All scores, XP, badges and streak reset to zero',
       xpEarned: 0,
     });
 
-    return res.json({ success: true, message: 'Student scores and XP reset to zero' });
+    return res.json({ success: true, message: 'Student scores, XP, badges and streak reset to zero' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to reset student' });
   }
 });
 
-// POST /api/scores/reset/subject/:subject — delete all scores for a subject (across all students), recalc XP
+// POST /api/scores/reset/subject/:subject — delete all scores for a subject (across all students), recalc XP + clear badges/streak
 router.post('/reset/subject/:subject', authenticate, authorize('admin', 'teacher'), async (req, res) => {
   try {
     const subject = req.params.subject;
@@ -321,22 +322,25 @@ router.post('/reset/subject/:subject', authenticate, authorize('admin', 'teacher
     // Delete all scores for the subject
     await db.delete(scores).where(eq(scores.subject, subject as any));
 
-    // Recalculate XP for each affected student from remaining scores
+    // Recalculate XP, clear badges & streak for each affected student from remaining scores
     for (const { studentId } of affected) {
       const remaining = await db.select().from(scores).where(eq(scores.studentId, studentId));
       const newXp = remaining.reduce((sum, s) => sum + calculateScoreXPFromRewards(s.score, s.maxScore, xpRewards), 0);
       const newLevel = getLevelFromThresholds(newXp, levelThresholds);
-      await db.update(students).set({ xp: newXp, level: newLevel }).where(eq(students.id, studentId));
+      await db.delete(studentBadges).where(eq(studentBadges.studentId, studentId));
+      await db.update(students)
+        .set({ xp: newXp, level: newLevel, streakDays: 0 })
+        .where(eq(students.id, studentId));
     }
 
-    return res.json({ success: true, message: `All ${subject} scores deleted, XP recalculated for ${affected.length} students` });
+    return res.json({ success: true, message: `All ${subject} scores deleted, XP recalculated and badges/streak reset for ${affected.length} students` });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to reset subject scores' });
   }
 });
 
-// POST /api/scores/reset/class/:classId — delete all scores for all students in a class, reset XP
+// POST /api/scores/reset/class/:classId — delete all scores for all students in a class, reset XP/badges/streak
 router.post('/reset/class/:classId', authenticate, authorize('admin', 'teacher'), async (req, res) => {
   try {
     const classId = parseInt(req.params.classId);
@@ -347,13 +351,16 @@ router.post('/reset/class/:classId', authenticate, authorize('admin', 'teacher')
 
     const ids = classStudents.map(s => s.id);
     await db.delete(scores).where(inArray(scores.studentId, ids));
-    await db.update(students).set({ xp: 0, level: getLevelFromThresholds(0, levelThresholds) }).where(inArray(students.id, ids));
+    await db.delete(studentBadges).where(inArray(studentBadges.studentId, ids));
+    await db.update(students)
+      .set({ xp: 0, level: getLevelFromThresholds(0, levelThresholds), streakDays: 0 })
+      .where(inArray(students.id, ids));
 
     for (const { id } of classStudents) {
       await db.insert(activityLogs).values({
         studentId: id,
         activityType: 'reset',
-        description: 'Class bulk reset — all scores and XP reset to zero',
+        description: 'Class bulk reset — all scores, XP, badges and streak reset to zero',
         xpEarned: 0,
       });
     }
