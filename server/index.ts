@@ -93,6 +93,43 @@ app.use(sanitizeInput);
 // ── Request logging ──────────────────────────────────────────────────────────
 app.use(requestLogger);
 
+// ── Manual seed trigger (protected by secret) ────────────────────────────────
+app.post('/api/admin/seed', async (req, res) => {
+  const secret = req.headers['x-seed-secret'] || req.query.secret;
+  const expectedSecret = process.env.SEED_SECRET || 'edu-seed-2024';
+  if (secret !== expectedSecret) {
+    return res.status(401).json({ error: 'Invalid seed secret' });
+  }
+  try {
+    const { seedDatabase } = await import('./db/seed.js');
+    await seedDatabase();
+    res.json({ success: true, message: 'Database seeded successfully' });
+  } catch (err) {
+    logger.error('Seed failed', { error: (err as Error).message });
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Force-seed endpoint: wipes users and re-seeds (use only on empty/broken DB)
+app.post('/api/admin/force-seed', async (req, res) => {
+  const secret = req.headers['x-seed-secret'] || req.query.secret;
+  const expectedSecret = process.env.SEED_SECRET || 'edu-seed-2024';
+  if (secret !== expectedSecret) {
+    return res.status(401).json({ error: 'Invalid seed secret' });
+  }
+  try {
+    // Delete in dependency order so foreign keys don't block
+    await db.execute(sql`TRUNCATE TABLE notifications, parent_links, predictions, activity_logs, rankings, student_badges, scores, students, class_subjects, classes, badges, users RESTART IDENTITY CASCADE`);
+    logger.info('Tables truncated, re-seeding...');
+    const { seedDatabase } = await import('./db/seed.js');
+    await seedDatabase();
+    res.json({ success: true, message: 'Database force-seeded successfully' });
+  } catch (err) {
+    logger.error('Force-seed failed', { error: (err as Error).message });
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // ── Health check (before auth) ───────────────────────────────────────────────
 app.get('/api/health', async (_req, res) => {
   const startTime = Date.now();
