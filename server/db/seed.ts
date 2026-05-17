@@ -20,11 +20,20 @@ function generateScoreForStudent(baseSkill: number, subject: string, month: numb
 }
 
 export async function seedDatabase() {
-  // Check if already seeded
-  const existing = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
-  if (existing[0].count > 0) {
+  // Check ALL critical tables — users alone is not enough (reset can wipe students)
+  const [userCount, studentCount, badgeCount] = await Promise.all([
+    db.select({ count: sql<number>`COUNT(*)` }).from(users),
+    db.select({ count: sql<number>`COUNT(*)` }).from(students),
+    db.select({ count: sql<number>`COUNT(*)` }).from(badges),
+  ]);
+  if (userCount[0].count > 0 && studentCount[0].count > 0 && badgeCount[0].count > 0) {
     console.log('Database already seeded, skipping...');
     return;
+  }
+  // Partial data detected — wipe and re-seed cleanly
+  if (userCount[0].count > 0 || studentCount[0].count > 0) {
+    console.log('Partial data detected, wiping and re-seeding...');
+    await db.execute(sql`TRUNCATE TABLE notifications, parent_links, predictions, activity_logs, rankings, student_badges, scores, students, class_subjects, classes, badges, users RESTART IDENTITY CASCADE`);
   }
 
   console.log('Seeding database...');
