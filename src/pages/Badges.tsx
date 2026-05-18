@@ -50,7 +50,7 @@ export default function Badges() {
 
   const categories = Array.from(new Set(allBadges.map(b => b.category)));
   const filtered = selectedCategory === 'all' ? allBadges : allBadges.filter(b => b.category === selectedCategory);
-  const grouped = Object.groupBy ? Object.groupBy(filtered, b => b.category) : filtered.reduce((acc: any, b) => {
+  const grouped = filtered.reduce((acc: Record<string, typeof filtered>, b) => {
     if (!acc[b.category]) acc[b.category] = [];
     acc[b.category].push(b);
     return acc;
