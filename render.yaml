@@ -20,9 +20,9 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: APP_URL
-        value: https://your-vercel-app.vercel.app
+        value: https://scoreanalytics-coral.vercel.app
       - key: ALLOWED_ORIGINS
-        value: https://your-vercel-app.vercel.app
+        value: https://scoreanalytics-coral.vercel.app
       - key: LOG_LEVEL
         value: info
       - key: SEED_SECRET
