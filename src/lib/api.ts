@@ -19,7 +19,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err: AxiosError<{ error?: string; message?: string }>) => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || '';
+    const isAuthEndpoint = /\/(login|register|forgot-password|reset-password)/.test(url);
+
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('edu_token');
       localStorage.removeItem('edu_user');
       window.location.href = '/login';

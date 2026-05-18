@@ -26,10 +26,24 @@ export async function seedDatabase() {
     db.select({ count: sql<number>`COUNT(*)` }).from(students),
     db.select({ count: sql<number>`COUNT(*)` }).from(badges),
   ]);
+
   if (userCount[0].count > 0 && studentCount[0].count > 0 && badgeCount[0].count > 0) {
-    console.log('Database already seeded, skipping...');
-    return;
+    // Verify the demo admin password is still correct — catches stale hashes from old deploys
+    const [adminUser] = await db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.email, 'admin@eduanalytics.com'))
+      .limit(1);
+
+    const passwordValid = adminUser ? await bcrypt.compare('admin123', adminUser.passwordHash) : false;
+    if (passwordValid) {
+      console.log('Database already seeded, skipping...');
+      return;
+    }
+    console.log('Demo account passwords are stale — re-seeding...');
+    await db.execute(sql`TRUNCATE TABLE notifications, parent_links, predictions, activity_logs, rankings, student_badges, scores, students, class_subjects, classes, badges, users RESTART IDENTITY CASCADE`);
   }
+
   // Partial data detected — wipe and re-seed cleanly
   if (userCount[0].count > 0 || studentCount[0].count > 0) {
     console.log('Partial data detected, wiping and re-seeding...');

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { settingsApi } from '../lib/api';
-import { GraduationCap, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff, ArrowRight, Shield } from 'lucide-react';
 
 const DEFAULT_DEMO_ACCOUNTS = [
   { label: 'Admin', email: 'admin@eduanalytics.com', password: 'admin123', color: 'bg-purple-100 text-purple-700 border-purple-200' },
@@ -35,7 +35,7 @@ export default function Login() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      setError(err.message || err.response?.data?.error || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -143,12 +143,21 @@ export default function Login() {
             </Link>
           </div>
 
-          <p className="text-center text-sm text-slate-500 mt-3">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 font-semibold hover:text-primary-700">
-              Create one
+          <div className="mt-5 pt-5 border-t border-slate-100 space-y-2">
+            <p className="text-center text-sm text-slate-500">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-primary-600 font-semibold hover:text-primary-700">
+                Register
+              </Link>
+            </p>
+            <Link
+              to="/register?role=admin"
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border-2 border-purple-200 bg-purple-50 text-purple-700 text-sm font-semibold hover:bg-purple-100 hover:border-purple-300 transition-all"
+            >
+              <Shield size={15} />
+              Register as Administrator
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
