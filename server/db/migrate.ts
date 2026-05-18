@@ -196,5 +196,91 @@ export async function runMigrations() {
     CREATE UNIQUE INDEX IF NOT EXISTS prt_token_idx ON password_reset_tokens(token);
   `);
 
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS assessments (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      subject TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'quiz',
+      status TEXT NOT NULL DEFAULT 'draft',
+      time_limit_mins INTEGER,
+      max_attempts INTEGER NOT NULL DEFAULT 1,
+      passing_score REAL DEFAULT 50,
+      class_id INTEGER REFERENCES classes(id),
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      instructions TEXT,
+      shuffle_questions BOOLEAN NOT NULL DEFAULT false,
+      shuffle_options BOOLEAN NOT NULL DEFAULT false,
+      scheduled_at TIMESTAMP,
+      closes_at TIMESTAMP,
+      semester INTEGER NOT NULL DEFAULT 1,
+      academic_year TEXT NOT NULL DEFAULT '2024-2025',
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS assessments_created_by_idx ON assessments(created_by);
+    CREATE INDEX IF NOT EXISTS assessments_class_idx ON assessments(class_id);
+    CREATE INDEX IF NOT EXISTS assessments_status_idx ON assessments(status);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS questions (
+      id SERIAL PRIMARY KEY,
+      assessment_id INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'mcq',
+      text TEXT NOT NULL,
+      image_url TEXT,
+      points REAL NOT NULL DEFAULT 1,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      explanation TEXT,
+      correct_answer TEXT,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS questions_assessment_idx ON questions(assessment_id);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS question_options (
+      id SERIAL PRIMARY KEY,
+      question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      is_correct BOOLEAN NOT NULL DEFAULT false,
+      order_index INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS q_options_question_idx ON question_options(question_id);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS submissions (
+      id SERIAL PRIMARY KEY,
+      assessment_id INTEGER NOT NULL REFERENCES assessments(id),
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      status TEXT NOT NULL DEFAULT 'in_progress',
+      started_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      submitted_at TIMESTAMP,
+      total_score REAL,
+      max_score REAL,
+      time_taken_secs INTEGER,
+      attempt_number INTEGER NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS submissions_assessment_student_idx ON submissions(assessment_id, student_id);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS submission_answers (
+      id SERIAL PRIMARY KEY,
+      submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+      question_id INTEGER NOT NULL REFERENCES questions(id),
+      selected_option_id INTEGER REFERENCES question_options(id),
+      answer_text TEXT,
+      is_correct BOOLEAN,
+      points_awarded REAL DEFAULT 0,
+      feedback TEXT
+    );
+    CREATE INDEX IF NOT EXISTS sub_answers_submission_idx ON submission_answers(submission_id);
+  `);
+
   console.log('Migrations completed successfully!');
 }

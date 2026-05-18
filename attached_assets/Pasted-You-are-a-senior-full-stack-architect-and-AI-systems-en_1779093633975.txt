@@ -1,0 +1,457 @@
+You are a senior full-stack architect and AI systems engineer.
+
+Build a production-ready modular educational analytics and assessment platform optimized for WASSCE/WAEC-style education systems, especially for Ghanaian SHS schools.
+
+====================================================
+CORE ARCHITECTURE REQUIREMENTS
+====================================================
+
+The system MUST be a SINGLE PLATFORM with modular architecture.
+
+DO NOT build separate apps for:
+- analytics
+- assessments
+- AI engine
+
+Instead use:
+
+Frontend:
+- React + Vite
+- TailwindCSS
+- shadcn/ui
+- React Router
+- Zustand or Context API
+
+Backend:
+- Node.js
+- Express.js
+
+Database:
+- PostgreSQL
+
+ORM:
+- Prisma
+
+Hosting Targets:
+- Frontend → Vercel
+- Backend → Render/Railway
+- Database → Neon or Supabase PostgreSQL
+
+Storage:
+- Cloudinary or Supabase Storage
+
+Authentication:
+- JWT authentication
+- Role-based access control
+
+====================================================
+SYSTEM MODULES
+====================================================
+
+Build these modules:
+
+1. Authentication Module
+2. Student Management Module
+3. Teacher Management Module
+4. Assessment Module
+5. Question Bank Module
+6. Marking Engine
+7. Analytics Engine
+8. AI Intelligence Layer
+9. Badge/Gamification Module
+10. Reporting Module
+11. Notification Module
+
+====================================================
+IMPORTANT ARCHITECTURAL RULE
+====================================================
+
+The Assessment Engine MUST write scores and activity data.
+
+The Analytics Engine MUST read scores and activity data.
+
+DO NOT tightly couple both systems.
+
+Use event-driven or service-based architecture internally.
+
+Flow:
+
+Assessment Module
+    ↓ writes
+Scores + Attendance + Activity + Submission Data
+    ↓
+Analytics Engine reads and computes:
+- rankings
+- trends
+- weak topics
+- predictions
+- badges
+- streaks
+- class insights
+
+====================================================
+ASSESSMENT MODULE REQUIREMENTS
+====================================================
+
+Build a full assessment system similar to modern LMS platforms like Quizizz, Google Classroom, and Wayground.
+
+Features:
+
+- Create assessments
+- Save drafts
+- Publish assessments
+- Timed assessments
+- Scheduled assessments
+- Randomized questions
+- Auto-save student progress
+- Attempt limits
+- Shuffle options
+- Student instructions
+- Mobile-friendly test mode
+- Offline resilience
+
+====================================================
+QUESTION TYPES
+====================================================
+
+Support:
+
+- Multiple Choice
+- True/False
+- Matching
+- Fill in the Blank
+- Short Answer
+- Essay Questions
+- Calculations
+- Chemistry Equations
+- Practical Questions
+- Diagram-based Questions
+
+====================================================
+WASSCE IMPORT MODE
+====================================================
+
+Build a dedicated WASSCE Import Mode.
+
+Features:
+
+- Import past WASSCE questions
+- Categorize by:
+  - year
+  - subject
+  - topic
+  - difficulty
+  - objective/theory
+- OCR support for scanned PDFs/images
+- AI extraction of questions
+- Automatic formatting into assessment builder
+- Marking scheme import
+- Theory rubric generation
+
+Include:
+- Chemistry
+- Physics
+- Biology
+- Mathematics
+- Integrated Science
+
+====================================================
+AI QUESTION GENERATION LAYER
+====================================================
+
+Build an AI-powered question generation engine.
+
+Teachers can:
+- upload notes
+- upload PDFs
+- paste text
+- upload lesson slides
+
+AI should generate:
+- MCQs
+- theory questions
+- calculations
+- practical questions
+- fill-in questions
+- difficulty levels
+- Bloom taxonomy classification
+- marking schemes
+- answer explanations
+
+Include:
+- easy
+- moderate
+- difficult
+- WASSCE-style challenge mode
+
+====================================================
+MARKING ENGINE
+====================================================
+
+Objective questions:
+- fully auto-marked
+
+Theory questions:
+- AI-assisted marking
+- rubric-based marking
+- teacher moderation workflow
+- manual override
+
+The marking engine should support:
+- keyword matching
+- semantic similarity
+- step-by-step mark allocation
+- partial scoring
+- scientific term recognition
+
+====================================================
+ANALYTICS ENGINE
+====================================================
+
+The analytics engine MUST consume assessment data and compute:
+
+Student Analytics:
+- performance trends
+- average scores
+- weak topics
+- strongest topics
+- completion rate
+- attendance streaks
+- consistency metrics
+- time management metrics
+
+Class Analytics:
+- class averages
+- question difficulty analysis
+- pass/fail distribution
+- topic mastery maps
+- engagement analysis
+
+Teacher Analytics:
+- assessment quality
+- student engagement
+- grading turnaround
+- topic coverage
+
+====================================================
+AI ANALYTICS LAYER
+====================================================
+
+Implement AI-powered analytics features.
+
+1. Weak Topic Detection
+- detect weak concepts per student
+- detect weak concepts per class
+- detect repeated failures
+- recommend remediation
+
+2. Performance Prediction
+Predict:
+- likely WASSCE performance
+- risk of failure
+- expected grade ranges
+- improvement probability
+
+3. Personalized Recommendations
+Generate:
+- revision plans
+- recommended topics
+- suggested practice questions
+- remediation exercises
+
+4. AI Insights Dashboard
+Generate natural language insights like:
+- “Student struggles with stoichiometry calculations.”
+- “Class performance drops significantly in organic chemistry.”
+- “Student consistency improved by 18% this month.”
+
+====================================================
+BADGE AND GAMIFICATION SYSTEM
+====================================================
+
+The analytics engine MUST read activity data from the assessment module.
+
+Badge triggers include:
+- attendance streaks
+- daily login streaks
+- assessment completion streaks
+- high performance
+- topic mastery
+- consistency improvement
+- fastest improvement
+- perfect scores
+- participation rate
+
+Build:
+- XP system
+- leaderboard
+- achievement badges
+- student level progression
+
+====================================================
+DATABASE DESIGN
+====================================================
+
+Design scalable PostgreSQL schema.
+
+Core tables should include:
+
+users
+roles
+students
+teachers
+classes
+subjects
+
+assessments
+questions
+question_options
+question_tags
+question_topics
+
+submissions
+submission_answers
+scores
+
+attendance_logs
+activity_logs
+streaks
+badges
+leaderboards
+
+analytics_snapshots
+performance_predictions
+weak_topic_reports
+ai_feedback
+
+====================================================
+FRONTEND REQUIREMENTS
+====================================================
+
+Use:
+- responsive design
+- mobile-first layout
+- dashboard cards
+- charts and visual analytics
+- dark/light mode
+- clean educational UI
+- accessibility support
+
+Use:
+- Recharts
+- Framer Motion
+- shadcn/ui
+
+====================================================
+REPORTING FEATURES
+====================================================
+
+Generate:
+- PDF reports
+- Excel exports
+- student report cards
+- class performance reports
+- WASSCE readiness reports
+
+====================================================
+NOTIFICATION FEATURES
+====================================================
+
+Build:
+- assessment reminders
+- performance alerts
+- streak notifications
+- teacher announcements
+
+====================================================
+SECURITY REQUIREMENTS
+====================================================
+
+Implement:
+- JWT auth
+- password hashing
+- RBAC
+- API validation
+- rate limiting
+- secure environment variables
+- audit logs
+
+====================================================
+DEPLOYMENT REQUIREMENTS
+====================================================
+
+Prepare for deployment:
+
+Frontend:
+- Vercel
+
+Backend:
+- Render/Railway
+
+Database:
+- Neon/Supabase PostgreSQL
+
+Include:
+- environment variable setup
+- Docker support
+- production build configs
+- backup strategy
+- monitoring hooks
+
+====================================================
+PROJECT STRUCTURE
+====================================================
+
+Use modular folder structure:
+
+/src/modules
+    /auth
+    /students
+    /teachers
+    /assessments
+    /analytics
+    /ai
+    /badges
+    /reports
+
+====================================================
+IMPORTANT ENGINEERING REQUIREMENTS
+====================================================
+
+- Write clean scalable code
+- Use reusable components
+- Use service layers
+- Use repository patterns
+- Avoid tightly coupled logic
+- Add comments and documentation
+- Add API documentation
+- Add seed data
+- Include demo accounts
+
+====================================================
+FINAL DELIVERABLES
+====================================================
+
+Generate:
+1. Full frontend
+2. Full backend
+3. PostgreSQL schema
+4. Prisma models
+5. API routes
+6. Authentication system
+7. AI integration layer
+8. Assessment builder
+9. Analytics dashboard
+10. Badge system
+11. Deployment instructions
+12. Environment variable templates
+13. Seed database scripts
+14. Sample WASSCE question imports
+
+The final system should feel like:
+- Quizizz
+- Google Classroom
+- WAEC analytics dashboard
+- AI tutoring platform
+
+combined into one unified modular system.

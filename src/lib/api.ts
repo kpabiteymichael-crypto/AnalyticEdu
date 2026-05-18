@@ -180,4 +180,22 @@ export const settingsApi = {
     api.put('/settings/subject-labels', { labels }).then(r => r.data),
 };
 
+// ─── Assessments ──────────────────────────────────────────
+export const assessmentsApi = {
+  list: () => api.get('/assessments').then(r => r.data),
+  get: (id: number) => api.get(`/assessments/${id}`).then(r => r.data),
+  create: (data: object) => api.post('/assessments', data).then(r => r.data),
+  update: (id: number, data: object) => api.put(`/assessments/${id}`, data).then(r => r.data),
+  delete: (id: number) => api.delete(`/assessments/${id}`).then(r => r.data),
+  setStatus: (id: number, status: string) => api.patch(`/assessments/${id}/status`, { status }).then(r => r.data),
+  addQuestion: (id: number, data: object) => api.post(`/assessments/${id}/questions`, data).then(r => r.data),
+  updateQuestion: (id: number, qid: number, data: object) => api.put(`/assessments/${id}/questions/${qid}`, data).then(r => r.data),
+  deleteQuestion: (id: number, qid: number) => api.delete(`/assessments/${id}/questions/${qid}`).then(r => r.data),
+  start: (id: number) => api.post(`/assessments/${id}/start`).then(r => r.data),
+  saveProgress: (id: number, data: object) => api.patch(`/assessments/${id}/save-progress`, data).then(r => r.data),
+  submit: (id: number, data: object) => api.post(`/assessments/${id}/submit`, data).then(r => r.data),
+  myResult: (id: number) => api.get(`/assessments/${id}/my-result`).then(r => r.data),
+  results: (id: number) => api.get(`/assessments/${id}/results`).then(r => r.data),
+};
+
 export default api;

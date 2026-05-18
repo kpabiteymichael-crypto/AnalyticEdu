@@ -25,6 +25,10 @@ const StudentDetail    = lazy(() => import('./pages/StudentDetail'));
 const Badges           = lazy(() => import('./pages/Badges'));
 const Settings         = lazy(() => import('./pages/Settings'));
 const Teams            = lazy(() => import('./pages/Teams'));
+const Assessments      = lazy(() => import('./pages/Assessments'));
+const AssessmentBuilder = lazy(() => import('./pages/AssessmentBuilder'));
+const TakeAssessment   = lazy(() => import('./pages/TakeAssessment'));
+const AssessmentResults = lazy(() => import('./pages/AssessmentResults'));
 
 // ── Shared page-level loading fallback ───────────────────────────────────────
 function PageLoader() {
@@ -130,6 +134,32 @@ export default function App() {
                 <Route path="teams" element={
                   <ProtectedRoute roles={['admin', 'teacher']}>
                     <Suspense fallback={<PageLoader />}><Teams /></Suspense>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="assessments" element={
+                  <ProtectedRoute roles={['admin', 'teacher', 'student']}>
+                    <Suspense fallback={<PageLoader />}><Assessments /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="assessments/new" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><AssessmentBuilder /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="assessments/:id/edit" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><AssessmentBuilder /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="assessments/:id/take" element={
+                  <ProtectedRoute roles={['student']}>
+                    <Suspense fallback={<PageLoader />}><TakeAssessment /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="assessments/:id/results" element={
+                  <ProtectedRoute roles={['admin', 'teacher', 'student']}>
+                    <Suspense fallback={<PageLoader />}><AssessmentResults /></Suspense>
                   </ProtectedRoute>
                 } />
 

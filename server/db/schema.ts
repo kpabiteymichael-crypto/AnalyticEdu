@@ -205,3 +205,118 @@ export const classSubjects = pgTable('class_subjects', {
 export const classSubjectsRelations = relations(classSubjects, ({ one }) => ({
   class: one(classes, { fields: [classSubjects.classId], references: [classes.id] }),
 }));
+
+// ─── Assessments ─────────────────────────────────────────────────────────────
+export const assessments = pgTable('assessments', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description'),
+  subject: text('subject').notNull(),
+  type: text('type').notNull().default('quiz'),
+  status: text('status').notNull().default('draft'),
+  timeLimitMins: integer('time_limit_mins'),
+  maxAttempts: integer('max_attempts').notNull().default(1),
+  passingScore: real('passing_score').default(50),
+  classId: integer('class_id').references(() => classes.id),
+  createdBy: integer('created_by').notNull().references(() => users.id),
+  instructions: text('instructions'),
+  shuffleQuestions: boolean('shuffle_questions').notNull().default(false),
+  shuffleOptions: boolean('shuffle_options').notNull().default(false),
+  scheduledAt: timestamp('scheduled_at'),
+  closesAt: timestamp('closes_at'),
+  semester: integer('semester').notNull().default(1),
+  academicYear: text('academic_year').notNull().default('2024-2025'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  createdByIdx: index('assessments_created_by_idx').on(t.createdBy),
+  classIdx: index('assessments_class_idx').on(t.classId),
+  statusIdx: index('assessments_status_idx').on(t.status),
+}));
+
+// ─── Questions ────────────────────────────────────────────────────────────────
+export const questions = pgTable('questions', {
+  id: serial('id').primaryKey(),
+  assessmentId: integer('assessment_id').notNull().references(() => assessments.id, { onDelete: 'cascade' }),
+  type: text('type').notNull().default('mcq'),
+  text: text('text').notNull(),
+  imageUrl: text('image_url'),
+  points: real('points').notNull().default(1),
+  orderIndex: integer('order_index').notNull().default(0),
+  explanation: text('explanation'),
+  correctAnswer: text('correct_answer'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  assessmentIdx: index('questions_assessment_idx').on(t.assessmentId),
+}));
+
+// ─── Question Options ─────────────────────────────────────────────────────────
+export const questionOptions = pgTable('question_options', {
+  id: serial('id').primaryKey(),
+  questionId: integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  isCorrect: boolean('is_correct').notNull().default(false),
+  orderIndex: integer('order_index').notNull().default(0),
+}, (t) => ({
+  questionIdx: index('q_options_question_idx').on(t.questionId),
+}));
+
+// ─── Submissions ──────────────────────────────────────────────────────────────
+export const submissions = pgTable('submissions', {
+  id: serial('id').primaryKey(),
+  assessmentId: integer('assessment_id').notNull().references(() => assessments.id),
+  studentId: integer('student_id').notNull().references(() => students.id),
+  status: text('status').notNull().default('in_progress'),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  submittedAt: timestamp('submitted_at'),
+  totalScore: real('total_score'),
+  maxScore: real('max_score'),
+  timeTakenSecs: integer('time_taken_secs'),
+  attemptNumber: integer('attempt_number').notNull().default(1),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  assessmentStudentIdx: index('submissions_assessment_student_idx').on(t.assessmentId, t.studentId),
+}));
+
+// ─── Submission Answers ───────────────────────────────────────────────────────
+export const submissionAnswers = pgTable('submission_answers', {
+  id: serial('id').primaryKey(),
+  submissionId: integer('submission_id').notNull().references(() => submissions.id, { onDelete: 'cascade' }),
+  questionId: integer('question_id').notNull().references(() => questions.id),
+  selectedOptionId: integer('selected_option_id').references(() => questionOptions.id),
+  answerText: text('answer_text'),
+  isCorrect: boolean('is_correct'),
+  pointsAwarded: real('points_awarded').default(0),
+  feedback: text('feedback'),
+}, (t) => ({
+  submissionIdx: index('sub_answers_submission_idx').on(t.submissionId),
+}));
+
+// ─── Assessment Relations ─────────────────────────────────────────────────────
+export const assessmentsRelations = relations(assessments, ({ one, many }) => ({
+  creator: one(users, { fields: [assessments.createdBy], references: [users.id] }),
+  class: one(classes, { fields: [assessments.classId], references: [classes.id] }),
+  questions: many(questions),
+  submissions: many(submissions),
+}));
+
+export const questionsRelations = relations(questions, ({ one, many }) => ({
+  assessment: one(assessments, { fields: [questions.assessmentId], references: [assessments.id] }),
+  options: many(questionOptions),
+}));
+
+export const questionOptionsRelations = relations(questionOptions, ({ one }) => ({
+  question: one(questions, { fields: [questionOptions.questionId], references: [questions.id] }),
+}));
+
+export const submissionsRelations = relations(submissions, ({ one, many }) => ({
+  assessment: one(assessments, { fields: [submissions.assessmentId], references: [assessments.id] }),
+  student: one(students, { fields: [submissions.studentId], references: [students.id] }),
+  answers: many(submissionAnswers),
+}));
+
+export const submissionAnswersRelations = relations(submissionAnswers, ({ one }) => ({
+  submission: one(submissions, { fields: [submissionAnswers.submissionId], references: [submissions.id] }),
+  question: one(questions, { fields: [submissionAnswers.questionId], references: [questions.id] }),
+  selectedOption: one(questionOptions, { fields: [submissionAnswers.selectedOptionId], references: [questionOptions.id] }),
+}));
