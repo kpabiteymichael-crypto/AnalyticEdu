@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: npm install --omit=dev
+    buildCommand: npm install
     startCommand: NODE_ENV=production node_modules/.bin/tsx server/index.ts
     healthCheckPath: /api/health
     autoDeploy: true
@@ -19,6 +19,8 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
       - key: APP_URL
         value: https://scoreanalytics-coral.vercel.app
       - key: ALLOWED_ORIGINS
