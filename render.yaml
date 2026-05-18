@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: npm install
-    startCommand: NODE_ENV=production npx tsx server/index.ts
+    buildCommand: npm install --omit=dev
+    startCommand: NODE_ENV=production node_modules/.bin/tsx server/index.ts
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
