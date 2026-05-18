@@ -199,6 +199,22 @@ export const assessmentsApi = {
   results: (id: number) => api.get(`/assessments/${id}/results`).then(r => r.data),
 };
 
+// ─── Question Bank ────────────────────────────────────────
+export const questionBankApi = {
+  list:              (params?: Record<string, string>) =>
+    api.get('/question-bank', { params }).then(r => r.data),
+  create:            (data: object) =>
+    api.post('/question-bank', data).then(r => r.data),
+  bulk:              (data: object) =>
+    api.post('/question-bank/bulk', data).then(r => r.data),
+  importAssessment:  (assessmentId: number, subject: string) =>
+    api.post(`/question-bank/import-assessment/${assessmentId}`, { subject }).then(r => r.data),
+  remove:            (id: number) =>
+    api.delete(`/question-bank/${id}`).then(r => r.data),
+  generateQuestions: (data: object) =>
+    api.post('/assessments/generate-questions', data).then(r => r.data),
+};
+
 // ─── Public (no auth) ─────────────────────────────────────
 export const publicAssessmentApi = {
   get:          (token: string) =>

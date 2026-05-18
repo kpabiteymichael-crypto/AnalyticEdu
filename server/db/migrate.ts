@@ -282,6 +282,24 @@ export async function runMigrations() {
     CREATE INDEX IF NOT EXISTS sub_answers_submission_idx ON submission_answers(submission_id);
   `);
 
+  // Question bank table
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS question_bank (
+      id          SERIAL PRIMARY KEY,
+      subject     TEXT NOT NULL,
+      type        TEXT NOT NULL DEFAULT 'mcq',
+      text        TEXT NOT NULL,
+      options     TEXT,
+      correct_answer TEXT,
+      explanation TEXT,
+      points      REAL NOT NULL DEFAULT 1,
+      tags        TEXT,
+      created_by  INTEGER NOT NULL REFERENCES users(id),
+      created_at  TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS qb_subject_idx ON question_bank(subject);
+  `);
+
   // Assessment module v2 — public links + guest submissions
   await db.execute(sql`
     ALTER TABLE assessments ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false;

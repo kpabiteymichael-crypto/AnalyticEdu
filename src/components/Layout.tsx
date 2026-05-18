@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, BarChart3, Trophy, Brain,
   FileText, LogOut, Bell, GraduationCap, Star, Menu, X,
   ClipboardList, Users2, ChevronRight, Settings, ChevronDown,
-  UserCog, Eye, EyeOff, CheckCircle, AlertCircle, BookOpen
+  UserCog, Eye, EyeOff, CheckCircle, AlertCircle, BookOpen, Database
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -19,6 +19,7 @@ const navItems: NavItem[] = [
   { label: 'Students', to: '/students', icon: <Users size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Score Entry', to: '/scores/entry', icon: <ClipboardList size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Assessments', to: '/assessments', icon: <BookOpen size={18} />, roles: ['admin', 'teacher', 'student'] },
+  { label: 'Question Bank', to: '/question-bank', icon: <Database size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['admin', 'teacher'] },
   { label: 'AI Predictions', to: '/predictions', icon: <Brain size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Reports', to: '/reports', icon: <FileText size={18} />, roles: ['admin', 'teacher'] },

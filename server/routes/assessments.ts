@@ -6,6 +6,10 @@ import {
 } from '../db/schema';
 import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import {
+  getSettingJson, DEFAULT_XP_REWARDS, DEFAULT_LEVEL_THRESHOLDS,
+  calculateScoreXPFromRewards, getLevelFromThresholds,
+} from './settings';
 import { z } from 'zod';
 
 const router = Router();
@@ -124,6 +128,106 @@ router.post('/', authenticate, authorize('admin', 'teacher'), async (req: AuthRe
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     console.error(err);
     return res.status(500).json({ error: 'Failed to create assessment' });
+  }
+});
+
+// ── AI Question Generation ────────────────────────────────────────────────────
+router.post('/generate-questions', authenticate, authorize('admin', 'teacher'), async (req: AuthRequest, res) => {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'AI generation is not configured. Please add OPENAI_API_KEY to your Replit Secrets.',
+        code: 'NO_API_KEY',
+      });
+    }
+
+    const { topic, notes, count = 5, type = 'mcq', subject = 'General', difficulty = 'medium' } = z.object({
+      topic: z.string().optional(),
+      notes: z.string().optional(),
+      count: z.number().int().min(1).max(20).default(5),
+      type: z.enum(['mcq', 'true_false', 'short_answer', 'essay', 'mixed']).default('mcq'),
+      subject: z.string().default('General'),
+      difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+    }).parse(req.body);
+
+    if (!topic && !notes) return res.status(400).json({ error: 'Provide either a topic or notes to generate questions from.' });
+
+    const typeDesc = type === 'mixed'
+      ? 'a mix of MCQ, True/False, and Short Answer'
+      : type === 'mcq' ? 'Multiple Choice (4 options, 1 correct)'
+      : type === 'true_false' ? 'True/False'
+      : type === 'short_answer' ? 'Short Answer'
+      : 'Essay';
+
+    const contentSection = notes
+      ? `Based on the following notes/content:\n\n${notes.slice(0, 4000)}`
+      : `About the topic: "${topic}" (Subject: ${subject})`;
+
+    const systemPrompt = `You are an expert educational question generator. Return ONLY valid JSON — an array of question objects. No extra text, no markdown, no code blocks.`;
+
+    const userPrompt = `Generate exactly ${count} ${difficulty} difficulty assessment questions of type: ${typeDesc}.
+${contentSection}
+
+Rules:
+- MCQ: {"type":"mcq","text":"question","points":1,"explanation":"brief reason","options":[{"text":"A","isCorrect":true},{"text":"B","isCorrect":false},{"text":"C","isCorrect":false},{"text":"D","isCorrect":false}]}
+- True/False: {"type":"true_false","text":"statement","points":1,"explanation":"reason","correctAnswer":"True"}
+- Short Answer: {"type":"short_answer","text":"question","points":2,"explanation":"context","correctAnswer":"expected answer"}
+- Essay: {"type":"essay","text":"question prompt","points":5,"explanation":"marking criteria","correctAnswer":""}
+- For mixed type: use a variety of question types.
+- Make questions academically accurate, clear, and test real understanding.
+- Return ONLY the JSON array of exactly ${count} objects.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      const errBody: any = await response.json().catch(() => ({}));
+      return res.status(502).json({ error: errBody.error?.message ?? 'OpenAI API request failed' });
+    }
+
+    const aiData: any = await response.json();
+    const raw = aiData.choices?.[0]?.message?.content ?? '[]';
+
+    let parsed: any;
+    try {
+      const obj = JSON.parse(raw);
+      parsed = Array.isArray(obj) ? obj : (obj.questions ?? obj.items ?? Object.values(obj)[0] ?? []);
+    } catch {
+      return res.status(502).json({ error: 'AI returned invalid JSON. Please try again.' });
+    }
+
+    const normalized = parsed.map((q: any, i: number) => ({
+      type: q.type ?? 'mcq',
+      text: q.text ?? q.question ?? '',
+      points: Number(q.points) || (q.type === 'essay' ? 5 : q.type === 'short_answer' ? 2 : 1),
+      explanation: q.explanation ?? '',
+      correctAnswer: q.correctAnswer ?? q.correct_answer ?? '',
+      options: Array.isArray(q.options) ? q.options.map((o: any, oi: number) => ({
+        text: typeof o === 'string' ? o : (o.text ?? ''),
+        isCorrect: o.isCorrect ?? o.is_correct ?? false,
+        orderIndex: oi,
+      })) : [],
+      orderIndex: i,
+    }));
+
+    return res.json(normalized);
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to generate questions' });
   }
 });
 
@@ -521,11 +625,22 @@ router.post('/:id/submit', authenticate, authorize('student'), async (req: AuthR
           academicYear: assessment.academicYear,
         }).onConflictDoNothing();
 
+        const [xpRewards, levelThresholds] = await Promise.all([
+          getSettingJson('xp_rewards', DEFAULT_XP_REWARDS),
+          getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
+        ]);
+        const xpEarned = calculateScoreXPFromRewards(totalScore, maxScore, xpRewards);
+        const newXp    = student.xp + xpEarned;
+        const newLevel = getLevelFromThresholds(newXp, levelThresholds);
+        await db.update(students)
+          .set({ xp: newXp, level: newLevel, lastActiveAt: new Date() })
+          .where(eq(students.id, student.id));
+
         await db.insert(activityLogs).values({
           studentId: student.id,
           activityType: 'assessment_submitted',
-          description: `Submitted "${assessment.title}" — scored ${Math.round(pct)}%`,
-          xpEarned: 0,
+          description: `Submitted "${assessment.title}" — scored ${Math.round(pct)}% (+${xpEarned} XP)`,
+          xpEarned,
         });
       }
     }

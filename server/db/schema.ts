@@ -263,6 +263,23 @@ export const questionOptions = pgTable('question_options', {
   questionIdx: index('q_options_question_idx').on(t.questionId),
 }));
 
+// ─── Question Bank ────────────────────────────────────────────────────────────
+export const questionBank = pgTable('question_bank', {
+  id: serial('id').primaryKey(),
+  subject: text('subject').notNull(),
+  type: text('type').notNull().default('mcq'),
+  text: text('text').notNull(),
+  options: text('options'),
+  correctAnswer: text('correct_answer'),
+  explanation: text('explanation'),
+  points: real('points').notNull().default(1),
+  tags: text('tags'),
+  createdBy: integer('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  subjectIdx: index('qb_subject_idx').on(t.subject),
+}));
+
 // ─── Submissions ──────────────────────────────────────────────────────────────
 export const submissions = pgTable('submissions', {
   id: serial('id').primaryKey(),

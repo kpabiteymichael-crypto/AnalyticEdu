@@ -30,6 +30,7 @@ const AssessmentBuilder = lazy(() => import('./pages/AssessmentBuilder'));
 const TakeAssessment    = lazy(() => import('./pages/TakeAssessment'));
 const AssessmentResults = lazy(() => import('./pages/AssessmentResults'));
 const PublicAssessment  = lazy(() => import('./pages/PublicAssessment'));
+const QuestionBank      = lazy(() => import('./pages/QuestionBank'));
 
 // ── Shared page-level loading fallback ───────────────────────────────────────
 function PageLoader() {
@@ -161,6 +162,11 @@ export default function App() {
                 <Route path="assessments/:id/results" element={
                   <ProtectedRoute roles={['admin', 'teacher', 'student']}>
                     <Suspense fallback={<PageLoader />}><AssessmentResults /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="question-bank" element={
+                  <ProtectedRoute roles={['admin', 'teacher']}>
+                    <Suspense fallback={<PageLoader />}><QuestionBank /></Suspense>
                   </ProtectedRoute>
                 } />
 
