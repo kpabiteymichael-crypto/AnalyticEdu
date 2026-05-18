@@ -195,7 +195,18 @@ Rules:
 
     if (!response.ok) {
       const errBody: any = await response.json().catch(() => ({}));
-      return res.status(502).json({ error: errBody.error?.message ?? 'OpenAI API request failed' });
+      const msg: string = errBody.error?.message ?? '';
+      const code: string = errBody.error?.code ?? '';
+      if (code === 'insufficient_quota' || msg.includes('quota') || msg.includes('billing')) {
+        return res.status(402).json({
+          error: 'Your OpenAI account has run out of credits.',
+          code: 'QUOTA_EXCEEDED',
+        });
+      }
+      if (response.status === 401) {
+        return res.status(401).json({ error: 'Invalid OpenAI API key. Please check your OPENAI_API_KEY secret.', code: 'INVALID_KEY' });
+      }
+      return res.status(502).json({ error: msg || 'OpenAI API request failed' });
     }
 
     const aiData: any = await response.json();

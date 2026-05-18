@@ -672,15 +672,20 @@ export default function AssessmentBuilder() {
               </div>
 
               {aiError && (
-                <div className={clsx('flex items-start gap-2 p-3 rounded-xl text-sm',
-                  aiError.includes('OPENAI_API_KEY') || aiError.includes('not configured')
-                    ? 'bg-amber-50 border border-amber-200 text-amber-800'
-                    : 'bg-red-50 border border-red-200 text-red-700')}>
+                <div className={clsx('flex items-start gap-2 p-3 rounded-xl text-sm border',
+                  aiError.includes('not configured') || aiError.includes('OPENAI_API_KEY')
+                    ? 'bg-amber-50 border-amber-200 text-amber-800'
+                    : aiError.includes('credits') || aiError.includes('quota') || aiError.includes('billing')
+                    ? 'bg-orange-50 border-orange-200 text-orange-800'
+                    : 'bg-red-50 border-red-200 text-red-700')}>
                   <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
                   <div>
-                    <p>{aiError}</p>
-                    {(aiError.includes('OPENAI_API_KEY') || aiError.includes('not configured')) && (
+                    <p className="font-medium">{aiError}</p>
+                    {(aiError.includes('not configured') || aiError.includes('OPENAI_API_KEY')) && (
                       <p className="mt-1 text-xs">Go to <strong>Replit Secrets</strong> and add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> with your OpenAI API key.</p>
+                    )}
+                    {(aiError.includes('credits') || aiError.includes('quota') || aiError.includes('billing')) && (
+                      <p className="mt-1 text-xs">Add billing credits at <a href="https://platform.openai.com/billing" target="_blank" rel="noreferrer" className="underline font-semibold">platform.openai.com/billing</a>, then try again.</p>
                     )}
                   </div>
                 </div>
