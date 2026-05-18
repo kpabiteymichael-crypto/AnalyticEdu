@@ -22,12 +22,6 @@
       ]
     },
     {
-      "source": "/icons/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
-      ]
-    },
-    {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
@@ -39,6 +33,7 @@
     }
   ],
   "env": {
-    "VITE_APP_VERSION": "1.0.0"
+    "VITE_APP_VERSION": "1.0.0",
+    "VITE_APP_NAME": "EduAnalytics"
   }
 }

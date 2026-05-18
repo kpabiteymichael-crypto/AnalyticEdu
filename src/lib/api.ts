@@ -55,6 +55,10 @@ export const authApi = {
   classes: () => api.get('/auth/classes').then(r => r.data),
   updateProfile: (data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }) =>
     api.put('/auth/profile', data).then(r => r.data),
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password', { email }).then(r => r.data),
+  resetPassword: (token: string, password: string) =>
+    api.post('/auth/reset-password', { token, password }).then(r => r.data),
 };
 
 // ─── Students ─────────────────────────────────────────────

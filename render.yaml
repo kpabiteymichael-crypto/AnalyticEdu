@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: node -e "require('./dist/server/index.js')" 2>/dev/null || npx tsx server/index.ts
+    buildCommand: npm install
+    startCommand: NODE_ENV=production npx tsx server/index.ts
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
@@ -19,17 +19,26 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: APP_URL
+        value: https://your-vercel-app.vercel.app
+      - key: ALLOWED_ORIGINS
+        value: https://your-vercel-app.vercel.app
       - key: LOG_LEVEL
         value: info
+      - key: SEED_SECRET
+        generateValue: true
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
       - key: SENTRY_DSN
         sync: false
-
-  - type: pserv
-    name: eduanalytics-db
-    runtime: pgsql
-    plan: starter
-    region: oregon
-    ipAllowList: []
 
 databases:
   - name: eduanalytics-db

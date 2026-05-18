@@ -8,6 +8,8 @@ import LoadingSpinner from './components/LoadingSpinner';
 // ── Eagerly loaded (on the critical path) ────────────────────────────────────
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // ── Lazily loaded (code-split per route) ─────────────────────────────────────
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
@@ -63,8 +65,10 @@ export default function App() {
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/login"    element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="/login"           element={<Login />} />
+              <Route path="/register"       element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password"  element={<ResetPassword />} />
 
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<HomeRedirect />} />

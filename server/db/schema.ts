@@ -181,6 +181,18 @@ export const studentBadgesRelations = relations(studentBadges, ({ one }) => ({
   badge: one(badges, { fields: [studentBadges.badgeId], references: [badges.id] }),
 }));
 
+// ─── Password Reset Tokens ────────────────────────────────
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  tokenIdx: uniqueIndex('prt_token_idx').on(t.token),
+}));
+
 // ─── Class Subjects ───────────────────────────────────────
 export const classSubjects = pgTable('class_subjects', {
   id: serial('id').primaryKey(),

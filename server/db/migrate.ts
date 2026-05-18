@@ -184,5 +184,17 @@ export async function runMigrations() {
     );
   `);
 
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS prt_token_idx ON password_reset_tokens(token);
+  `);
+
   console.log('Migrations completed successfully!');
 }

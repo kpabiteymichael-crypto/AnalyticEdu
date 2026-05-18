@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import { db } from '../db/index';
-import { users, students, classes } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { users, students, classes, passwordResetTokens } from '../db/schema';
+import { eq, and, gt } from 'drizzle-orm';
 import { generateToken, authenticate, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
@@ -140,6 +142,94 @@ router.get('/classes', authenticate, async (_req, res) => {
     return res.json(allClasses);
   } catch {
     return res.status(500).json({ error: 'Failed to fetch classes' });
+  }
+});
+
+// ── Forgot Password ──────────────────────────────────────────────────────────
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = z.object({ email: z.string().email() }).parse(req.body);
+
+    const [user] = await db.select({ id: users.id, name: users.name, email: users.email })
+      .from(users).where(eq(users.email, email)).limit(1);
+
+    // Always return success to prevent user enumeration
+    if (!user) {
+      return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    // Invalidate any existing tokens for this user
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.insert(passwordResetTokens).values({ userId: user.id, token, expiresAt });
+
+    const appUrl = process.env.APP_URL || 'http://localhost:5000';
+    const resetLink = `${appUrl}/reset-password?token=${token}`;
+
+    // Send email if SMTP is configured, otherwise return link (demo mode)
+    if (process.env.SMTP_HOST) {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || `"EduAnalytics" <no-reply@eduanalytics.com>`,
+        to: user.email,
+        subject: 'Reset your EduAnalytics password',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto">
+            <h2 style="color:#4f46e5">Password Reset</h2>
+            <p>Hi ${user.name},</p>
+            <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
+            <a href="${resetLink}" style="display:inline-block;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+              Reset Password
+            </a>
+            <p style="color:#64748b;font-size:13px">If you didn't request this, you can safely ignore this email.</p>
+            <p style="color:#94a3b8;font-size:12px">Link: ${resetLink}</p>
+          </div>`,
+      });
+      return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    // Demo mode — return the link directly so it works without email config
+    return res.json({ success: true, message: 'Reset link generated (demo mode — no email configured).', resetLink });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// ── Reset Password ───────────────────────────────────────────────────────────
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = z.object({
+      token: z.string().min(1),
+      password: z.string().min(6),
+    }).parse(req.body);
+
+    const now = new Date();
+    const [record] = await db.select().from(passwordResetTokens)
+      .where(and(
+        eq(passwordResetTokens.token, token),
+        gt(passwordResetTokens.expiresAt, now),
+      )).limit(1);
+
+    if (!record) return res.status(400).json({ error: 'Invalid or expired reset link.' });
+    if (record.usedAt) return res.status(400).json({ error: 'This reset link has already been used.' });
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await db.update(users).set({ passwordHash, updatedAt: now }).where(eq(users.id, record.userId));
+    await db.update(passwordResetTokens).set({ usedAt: now }).where(eq(passwordResetTokens.id, record.id));
+
+    return res.json({ success: true, message: 'Password updated successfully. You can now log in.' });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
