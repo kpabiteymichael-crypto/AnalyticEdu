@@ -188,6 +188,7 @@ export const assessmentsApi = {
   update: (id: number, data: object) => api.put(`/assessments/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/assessments/${id}`).then(r => r.data),
   setStatus: (id: number, status: string) => api.patch(`/assessments/${id}/status`, { status }).then(r => r.data),
+  makePublic: (id: number) => api.patch(`/assessments/${id}/make-public`).then(r => r.data),
   addQuestion: (id: number, data: object) => api.post(`/assessments/${id}/questions`, data).then(r => r.data),
   updateQuestion: (id: number, qid: number, data: object) => api.put(`/assessments/${id}/questions/${qid}`, data).then(r => r.data),
   deleteQuestion: (id: number, qid: number) => api.delete(`/assessments/${id}/questions/${qid}`).then(r => r.data),
@@ -196,6 +197,20 @@ export const assessmentsApi = {
   submit: (id: number, data: object) => api.post(`/assessments/${id}/submit`, data).then(r => r.data),
   myResult: (id: number) => api.get(`/assessments/${id}/my-result`).then(r => r.data),
   results: (id: number) => api.get(`/assessments/${id}/results`).then(r => r.data),
+};
+
+// ─── Public (no auth) ─────────────────────────────────────
+export const publicAssessmentApi = {
+  get:          (token: string) =>
+    api.get(`/public/assessment/${token}`).then(r => r.data),
+  start:        (token: string, data: { participantName: string }) =>
+    api.post(`/public/assessment/${token}/start`, data).then(r => r.data),
+  saveProgress: (token: string, data: object) =>
+    api.patch(`/public/assessment/${token}/save-progress`, data).then(r => r.data),
+  submit:       (token: string, data: object) =>
+    api.post(`/public/assessment/${token}/submit`, data).then(r => r.data),
+  result:       (token: string, subId: number) =>
+    api.get(`/public/assessment/${token}/result/${subId}`).then(r => r.data),
 };
 
 export default api;

@@ -282,5 +282,15 @@ export async function runMigrations() {
     CREATE INDEX IF NOT EXISTS sub_answers_submission_idx ON submission_answers(submission_id);
   `);
 
+  // Assessment module v2 — public links + guest submissions
+  await db.execute(sql`
+    ALTER TABLE assessments ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE assessments ADD COLUMN IF NOT EXISTS public_token TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS assessments_public_token_idx ON assessments(public_token) WHERE public_token IS NOT NULL;
+    ALTER TABLE submissions ALTER COLUMN student_id DROP NOT NULL;
+    ALTER TABLE submissions ADD COLUMN IF NOT EXISTS participant_name TEXT;
+    ALTER TABLE submissions ADD COLUMN IF NOT EXISTS is_guest BOOLEAN NOT NULL DEFAULT false;
+  `);
+
   console.log('Migrations completed successfully!');
 }

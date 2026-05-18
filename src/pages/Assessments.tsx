@@ -5,7 +5,7 @@ import { assessmentsApi } from '../lib/api';
 import {
   ClipboardList, Plus, Clock, Users, BookOpen, ChevronRight,
   CheckCircle2, AlertCircle, Lock, Play, Eye, Trash2, Edit3,
-  BarChart2, Send
+  BarChart2, Send, Globe, Link2, RefreshCw
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -27,6 +27,8 @@ export default function Assessments() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [deleting, setDeleting] = useState<number | null>(null);
   const [publishing, setPublishing] = useState<number | null>(null);
+  const [togglingPublic, setTogglingPublic] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const isTeacher = user?.role === 'admin' || user?.role === 'teacher';
 
@@ -58,6 +60,28 @@ export default function Assessments() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  const handleTogglePublic = async (id: number) => {
+    setTogglingPublic(id);
+    try {
+      const updated = await assessmentsApi.makePublic(id);
+      setItems(prev => prev.map(a => a.id === id
+        ? { ...a, is_public: updated.isPublic, public_token: updated.publicToken }
+        : a));
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setTogglingPublic(null);
+    }
+  };
+
+  const copyLink = (token: string, id: number) => {
+    const url = `${window.location.origin}/public/assessment/${token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   const filtered = filterStatus === 'all' ? items : items.filter(a => a.status === filterStatus);
@@ -158,7 +182,14 @@ export default function Assessments() {
                 {filtered.map(a => (
                   <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{a.title}</div>
+                      <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                        {a.title}
+                        {a.is_public && (
+                          <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full font-medium">
+                            <Globe size={10} /> Public
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-400 mt-0.5">{TYPE_LABELS[a.type] ?? a.type} · {a.time_limit_mins ? `${a.time_limit_mins} min` : 'No limit'}</div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
@@ -192,6 +223,32 @@ export default function Assessments() {
                         >
                           <BarChart2 size={15} />
                         </button>
+                        {/* Make public / copy link */}
+                        {a.status === 'published' && (
+                          a.is_public && a.public_token ? (
+                            <button
+                              onClick={() => copyLink(a.public_token, a.id)}
+                              className={clsx('p-1.5 rounded-lg transition-colors',
+                                copiedId === a.id
+                                  ? 'text-emerald-600 bg-emerald-50'
+                                  : 'text-blue-500 hover:text-blue-700 hover:bg-blue-50')}
+                              title="Copy public link"
+                            >
+                              {copiedId === a.id ? <CheckCircle2 size={15} /> : <Link2 size={15} />}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleTogglePublic(a.id)}
+                              disabled={togglingPublic === a.id}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Make public (shareable link)"
+                            >
+                              {togglingPublic === a.id
+                                ? <RefreshCw size={15} className="animate-spin" />
+                                : <Globe size={15} />}
+                            </button>
+                          )
+                        )}
                         <button
                           onClick={() => handlePublish(a.id, a.status)}
                           disabled={publishing === a.id}
@@ -229,7 +286,9 @@ export default function Assessments() {
           {filtered.map(a => {
             const status = a.my_status as string | null;
             const pct = a.my_score != null && a.my_max_score ? Math.round(a.my_score / a.my_max_score * 100) : null;
-            const canTake = !status || status === 'in_progress';
+            const completedAttempts = a.my_completed_attempts ?? 0;
+            const maxAttempts = a.max_attempts ?? 1;
+            const canTake = !status || status === 'in_progress' || completedAttempts < maxAttempts;
 
             return (
               <div key={a.id} className="card p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
@@ -251,6 +310,11 @@ export default function Assessments() {
                   <span className="flex items-center gap-1"><BookOpen size={12} />{a.question_count ?? 0} questions</span>
                   {a.time_limit_mins && <span className="flex items-center gap-1"><Clock size={12} />{a.time_limit_mins} min</span>}
                   {a.passing_score && <span className="flex items-center gap-1"><CheckCircle2 size={12} />Pass: {a.passing_score}%</span>}
+                  {maxAttempts > 1 && (
+                    <span className="flex items-center gap-1 text-primary-500">
+                      <RefreshCw size={12} />{completedAttempts}/{maxAttempts} attempts
+                    </span>
+                  )}
                 </div>
 
                 {pct !== null && (
@@ -271,12 +335,18 @@ export default function Assessments() {
                       onClick={() => navigate(`/assessments/${a.id}/take`)}
                       className="flex-1 btn-primary text-sm py-2 flex items-center justify-center gap-1.5"
                     >
-                      {status === 'in_progress' ? <><AlertCircle size={14} /> Continue</> : <><Play size={14} /> Start</>}
+                      {status === 'in_progress'
+                        ? <><AlertCircle size={14} /> Continue</>
+                        : completedAttempts > 0
+                        ? <><RefreshCw size={14} /> Retake</>
+                        : <><Play size={14} /> Start</>}
                     </button>
-                  ) : (
+                  ) : null}
+                  {(status === 'submitted' || status === 'graded') && (
                     <button
                       onClick={() => navigate(`/assessments/${a.id}/results`)}
-                      className="flex-1 btn-secondary text-sm py-2 flex items-center justify-center gap-1.5"
+                      className={clsx('text-sm py-2 flex items-center justify-center gap-1.5',
+                        canTake ? 'btn-secondary' : 'flex-1 btn-secondary')}
                     >
                       <Eye size={14} /> View Result
                     </button>

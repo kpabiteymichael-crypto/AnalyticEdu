@@ -29,6 +29,7 @@ import notificationRoutes from './routes/notifications';
 import settingsRoutes from './routes/settings';
 import classRoutes from './routes/classes';
 import assessmentRoutes from './routes/assessments';
+import publicRoutes from './routes/public';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -168,6 +169,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/assessments', assessmentRoutes);
+app.use('/api/public', publicRoutes);
 
 // ── Static files in production ───────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {

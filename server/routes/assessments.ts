@@ -58,12 +58,17 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
       const rows = await db.execute(sql`
         SELECT
           a.*,
-          COUNT(DISTINCT q.id)::int           AS question_count,
-          sub.status                           AS my_status,
-          sub.total_score                      AS my_score,
-          sub.max_score                        AS my_max_score,
-          sub.id                               AS my_submission_id,
-          sub.submitted_at                     AS my_submitted_at
+          COUNT(DISTINCT q.id)::int AS question_count,
+          sub.status                AS my_status,
+          sub.total_score           AS my_score,
+          sub.max_score             AS my_max_score,
+          sub.id                    AS my_submission_id,
+          sub.submitted_at          AS my_submitted_at,
+          (
+            SELECT COUNT(*)::int FROM submissions s3
+            WHERE s3.assessment_id = a.id AND s3.student_id = ${student.id}
+              AND s3.status != 'in_progress'
+          ) AS my_completed_attempts
         FROM assessments a
         LEFT JOIN questions q ON q.assessment_id = a.id
         LEFT JOIN submissions sub
@@ -501,7 +506,7 @@ router.post('/:id/submit', authenticate, authorize('student'), async (req: AuthR
     // Auto-write to scores table so analytics picks it up
     const pct = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
     const mappedSubject = mapSubject(assessment.subject);
-    if (mappedSubject) {
+    if (mappedSubject && sub.studentId != null) {
       const [student] = await db.select().from(students).where(eq(students.id, sub.studentId)).limit(1);
       if (student) {
         await db.insert(scores).values({
@@ -569,6 +574,34 @@ router.get('/:id/my-result', authenticate, authorize('student'), async (req: Aut
   }
 });
 
+// ── Make assessment public (toggle) ─────────────────────────────────────────
+router.patch('/:id/make-public', authenticate, authorize('admin', 'teacher'), async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [assessment] = await db.select().from(assessments).where(eq(assessments.id, id)).limit(1);
+    if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
+    if (assessment.createdBy !== req.user!.id && req.user!.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const isPublic = !assessment.isPublic;
+    let publicToken = assessment.publicToken;
+    if (isPublic && !publicToken) {
+      const { randomBytes } = await import('crypto');
+      publicToken = randomBytes(8).toString('hex');
+    }
+
+    const [updated] = await db.update(assessments)
+      .set({ isPublic, publicToken: isPublic ? publicToken : assessment.publicToken, updatedAt: new Date() })
+      .where(eq(assessments.id, id))
+      .returning();
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to toggle public access' });
+  }
+});
+
 // ── Teacher: All results for an assessment ───────────────────────────────────
 router.get('/:id/results', authenticate, authorize('admin', 'teacher'), async (req: AuthRequest, res) => {
   try {
@@ -578,17 +611,19 @@ router.get('/:id/results', authenticate, authorize('admin', 'teacher'), async (r
       SELECT
         sub.id,
         sub.student_id,
+        sub.participant_name,
+        sub.is_guest,
         sub.status,
         sub.total_score,
         sub.max_score,
         sub.time_taken_secs,
         sub.submitted_at,
         sub.attempt_number,
-        u.name AS student_name,
-        st.student_code
+        COALESCE(u.name, sub.participant_name, 'Guest') AS student_name,
+        COALESCE(st.student_code, 'guest')              AS student_code
       FROM submissions sub
-      JOIN students st ON st.id = sub.student_id
-      JOIN users u ON u.id = st.user_id
+      LEFT JOIN students st ON st.id = sub.student_id
+      LEFT JOIN users u ON u.id = st.user_id
       WHERE sub.assessment_id = ${assessmentId}
         AND sub.status <> 'in_progress'
       ORDER BY sub.total_score DESC NULLS LAST

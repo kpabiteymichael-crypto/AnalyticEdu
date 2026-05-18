@@ -25,10 +25,11 @@ const StudentDetail    = lazy(() => import('./pages/StudentDetail'));
 const Badges           = lazy(() => import('./pages/Badges'));
 const Settings         = lazy(() => import('./pages/Settings'));
 const Teams            = lazy(() => import('./pages/Teams'));
-const Assessments      = lazy(() => import('./pages/Assessments'));
+const Assessments       = lazy(() => import('./pages/Assessments'));
 const AssessmentBuilder = lazy(() => import('./pages/AssessmentBuilder'));
-const TakeAssessment   = lazy(() => import('./pages/TakeAssessment'));
+const TakeAssessment    = lazy(() => import('./pages/TakeAssessment'));
 const AssessmentResults = lazy(() => import('./pages/AssessmentResults'));
+const PublicAssessment  = lazy(() => import('./pages/PublicAssessment'));
 
 // ── Shared page-level loading fallback ───────────────────────────────────────
 function PageLoader() {
@@ -177,6 +178,12 @@ export default function App() {
                   </ProtectedRoute>
                 } />
               </Route>
+
+              <Route path="public/assessment/:token" element={
+                <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><LoadingSpinner /></div>}>
+                  <PublicAssessment />
+                </Suspense>
+              } />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
