@@ -1,0 +1,450 @@
+You are a senior full-stack software architect, AI systems engineer, LMS architect, EdTech product strategist, DevOps engineer, database engineer, and UI/UX engineer.
+
+Your task is to EXTEND and UPGRADE the already-built analytics and assessment platform into a complete AI-powered intelligent academic ecosystem.
+
+The existing system already contains:
+- analytics dashboard,
+- assessment engine,
+- score tracking,
+- performance analytics,
+- AI prediction logic,
+- admin dashboard,
+- teacher/student authentication,
+- WASSCE practice support.
+
+You must PRESERVE all existing functionality while integrating NEW advanced modules and ensuring all systems remain interconnected.
+
+====================================================
+CORE OBJECTIVE
+====================================================
+
+Transform the platform into a unified ecosystem containing:
+
+1. Learning Management System (LMS)
+2. AI-powered personalized learning
+3. Peer tutoring & mentorship system
+4. Gamification & reward system
+5. Intelligent intervention engine
+6. Social academic collaboration features
+7. Smart recommendation system
+8. Content publishing system
+9. Real-time communication system
+10. Mobile-first learning experience
+
+====================================================
+GLOBAL EXECUTION RULES
+====================================================
+
+1. DO NOT rebuild the app from scratch.
+2. Extend the existing architecture.
+3. Preserve all current assessment and analytics features.
+4. Maintain compatibility with existing database schema where possible.
+5. Use scalable modular architecture.
+6. Optimize for mobile responsiveness.
+7. Use production-grade security practices.
+8. Ensure frontend and backend remain synchronized.
+9. Build reusable APIs and reusable components.
+10. Validate every new module before proceeding.
+
+====================================================
+PHASE 1 — EXISTING SYSTEM ANALYSIS
+====================================================
+
+Analyze the existing application architecture:
+- frontend structure,
+- backend structure,
+- authentication,
+- database schema,
+- assessment engine,
+- analytics engine,
+- AI logic,
+- API routes,
+- dashboard structure,
+- deployment setup.
+
+Generate:
+- architecture analysis,
+- extension compatibility report,
+- integration strategy,
+- schema expansion plan.
+
+Identify:
+- reusable modules,
+- extensibility points,
+- performance bottlenecks,
+- security concerns,
+- scaling concerns.
+
+====================================================
+PHASE 2 — LMS (LEARNING MANAGEMENT SYSTEM)
+====================================================
+
+Integrate a complete LMS module.
+
+====================================================
+LMS CORE FEATURES
+====================================================
+
+Implement:
+- subject-based content access,
+- topic-based organization,
+- note uploads,
+- PDF uploads,
+- video publishing,
+- assignment publishing,
+- lesson publishing,
+- content categorization,
+- learning progress tracking,
+- lesson completion tracking,
+- bookmark system,
+- continue learning system.
+
+====================================================
+CONTENT STRUCTURE
+====================================================
+
+Organize content as:
+
+Subject
+ └── Topic
+      └── Subtopic
+           └── Learning Materials
+
+====================================================
+MATERIAL TYPES
+====================================================
+
+Support:
+- PDF
+- DOCX
+- video URLs
+- uploaded videos
+- slides
+- audio
+- external links
+- interactive resources
+
+====================================================
+CONTENT ACCESS CONTROL
+====================================================
+
+Students should ONLY see:
+- subjects assigned to their class,
+- enrolled programs,
+- approved elective combinations.
+
+Teachers should:
+- upload materials,
+- edit materials,
+- schedule publishing,
+- archive materials,
+- assign materials to classes.
+
+====================================================
+AI-ASSISTED LEARNING
+====================================================
+
+The LMS must integrate directly with analytics.
+
+If a student is weak in a topic:
+- automatically recommend notes,
+- recommend videos,
+- recommend quizzes,
+- recommend peer tutors,
+- recommend revision plans.
+
+====================================================
+PHASE 3 — PEER TUTORING & MENTORSHIP SYSTEM
+====================================================
+
+Create an intelligent peer tutoring system.
+
+====================================================
+CORE FEATURES
+====================================================
+
+Implement:
+- peer tutoring rooms,
+- mentorship requests,
+- AI tutor matching,
+- academic discussion rooms,
+- group revision rooms,
+- real-time messaging,
+- topic-specific support channels,
+- tutoring history,
+- mentorship analytics.
+
+====================================================
+AI MATCHING ENGINE
+====================================================
+
+Automatically identify:
+- strong students,
+- weak students.
+
+Match students based on:
+- subject strength,
+- topic mastery,
+- class level,
+- availability,
+- performance trends.
+
+====================================================
+MENTORSHIP FEATURES
+====================================================
+
+Implement:
+- request help button,
+- mentor acceptance workflow,
+- mentor ratings,
+- mentor reputation system,
+- session tracking,
+- mentor rewards,
+- AI suggested mentors.
+
+====================================================
+REAL-TIME FEATURES
+====================================================
+
+Implement:
+- WebSocket or Socket.IO communication,
+- real-time notifications,
+- online presence,
+- typing indicators,
+- message persistence,
+- unread counters.
+
+====================================================
+PHASE 4 — GAMIFICATION SYSTEM
+====================================================
+
+Implement a complete gamification engine.
+
+====================================================
+POINT SYSTEM
+====================================================
+
+Award points for:
+- completing lessons,
+- helping peers,
+- high quiz scores,
+- consistency,
+- daily login streaks,
+- completing revision plans,
+- tutoring students.
+
+====================================================
+BADGES
+====================================================
+
+Implement:
+- achievement badges,
+- subject mastery badges,
+- mentor badges,
+- consistency badges,
+- leaderboard rewards.
+
+====================================================
+LEADERBOARDS
+====================================================
+
+Create:
+- class leaderboard,
+- subject leaderboard,
+- mentorship leaderboard,
+- consistency leaderboard.
+
+====================================================
+PHASE 5 — AI INTERVENTION ENGINE
+====================================================
+
+Build a centralized AI intervention engine.
+
+====================================================
+AI FEATURES
+====================================================
+
+Implement:
+- weak topic detection,
+- learning recommendations,
+- risk prediction,
+- performance prediction,
+- personalized study plans,
+- adaptive learning recommendations,
+- intervention alerts,
+- AI-generated revision plans.
+
+====================================================
+ANALYTICS INTEGRATION
+====================================================
+
+Use:
+- assessment scores,
+- time spent learning,
+- missed assignments,
+- weak topics,
+- engagement data,
+- mentorship participation.
+
+Generate:
+- student risk levels,
+- recommended interventions,
+- improvement forecasts.
+
+====================================================
+PHASE 6 — SOCIAL LEARNING FEATURES
+====================================================
+
+Implement:
+- discussion forums,
+- academic feed,
+- class announcements,
+- collaborative study groups,
+- shared revision rooms,
+- question discussion threads,
+- reactions and engagement tools.
+
+====================================================
+PHASE 7 — DATABASE EXPANSION
+====================================================
+
+Extend the PostgreSQL schema.
+
+Create tables for:
+- learning_materials,
+- topics,
+- subtopics,
+- lesson_progress,
+- mentorship_sessions,
+- tutor_matches,
+- discussion_rooms,
+- messages,
+- badges,
+- points,
+- achievements,
+- intervention_logs,
+- recommendation_history,
+- notifications.
+
+Optimize:
+- indexing,
+- relationships,
+- query performance,
+- scalability.
+
+====================================================
+PHASE 8 — FILE STORAGE & MEDIA MANAGEMENT
+====================================================
+
+Implement scalable storage architecture.
+
+Use:
+- Cloudinary,
+- Supabase Storage,
+- or AWS S3.
+
+Support:
+- file uploads,
+- video streaming,
+- secure access,
+- CDN optimization,
+- thumbnail generation.
+
+Do NOT store large files directly in PostgreSQL.
+
+====================================================
+PHASE 9 — MOBILE-FIRST EXPERIENCE
+====================================================
+
+Optimize all modules for:
+- Android devices,
+- low bandwidth,
+- responsive layouts,
+- touch navigation,
+- offline-friendly access where possible.
+
+Ensure:
+- smooth mobile UX,
+- fast loading,
+- progressive rendering.
+
+====================================================
+PHASE 10 — SECURITY & MODERATION
+====================================================
+
+Implement:
+- role-based access control,
+- secure messaging,
+- moderation tools,
+- content approval workflows,
+- abuse reporting,
+- anti-spam systems,
+- secure file uploads,
+- rate limiting.
+
+====================================================
+PHASE 11 — PERFORMANCE OPTIMIZATION
+====================================================
+
+Optimize:
+- API performance,
+- database queries,
+- frontend rendering,
+- caching,
+- lazy loading,
+- websocket efficiency,
+- media delivery.
+
+====================================================
+PHASE 12 — TESTING
+====================================================
+
+Perform:
+- LMS testing,
+- peer tutoring testing,
+- websocket testing,
+- AI recommendation testing,
+- mobile testing,
+- load testing,
+- security testing,
+- scalability testing.
+
+====================================================
+PHASE 13 — DOCUMENTATION
+====================================================
+
+Generate:
+- architecture documentation,
+- API documentation,
+- LMS admin guide,
+- mentorship system guide,
+- database documentation,
+- AI workflow documentation,
+- deployment guide,
+- mobile deployment guide.
+
+====================================================
+FINAL SYSTEM REQUIREMENTS
+====================================================
+
+The final platform must function as a unified intelligent academic ecosystem where:
+
+Learning
+→ Assessment
+→ Analytics
+→ AI Intervention
+→ Peer Support
+→ Improvement
+
+are all interconnected.
+
+The final system must:
+- scale to many schools,
+- support thousands of students,
+- support mobile deployment,
+- remain maintainable,
+- remain modular,
+- be production ready,
+- support future AI expansion.
+
+Preserve all existing analytics and assessment functionality while integrating all new modules seamlessly.

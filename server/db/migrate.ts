@@ -310,5 +310,67 @@ export async function runMigrations() {
     ALTER TABLE submissions ADD COLUMN IF NOT EXISTS is_guest BOOLEAN NOT NULL DEFAULT false;
   `);
 
+  // LMS — Learning Management System
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS topics (
+      id SERIAL PRIMARY KEY,
+      subject TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS topics_subject_idx ON topics(subject);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS learning_materials (
+      id SERIAL PRIMARY KEY,
+      topic_id INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+      class_id INTEGER REFERENCES classes(id),
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      description TEXT,
+      type TEXT NOT NULL DEFAULT 'note',
+      url TEXT,
+      content TEXT,
+      is_published BOOLEAN NOT NULL DEFAULT false,
+      estimated_mins INTEGER DEFAULT 10,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS lm_topic_idx ON learning_materials(topic_id);
+    CREATE INDEX IF NOT EXISTS lm_class_idx ON learning_materials(class_id);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS lesson_progress (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      material_id INTEGER NOT NULL REFERENCES learning_materials(id) ON DELETE CASCADE,
+      completed_at TIMESTAMP,
+      time_spent_mins INTEGER DEFAULT 0,
+      is_bookmarked BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS lesson_progress_unique ON lesson_progress(student_id, material_id);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS announcements (
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER REFERENCES classes(id),
+      author_id INTEGER NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      is_pinned BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS announcements_class_idx ON announcements(class_id);
+  `);
+
   console.log('Migrations completed successfully!');
 }

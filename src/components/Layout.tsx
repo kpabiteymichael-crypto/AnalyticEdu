@@ -7,7 +7,8 @@ import {
   LayoutDashboard, Users, BarChart3, Trophy, Brain,
   FileText, LogOut, Bell, GraduationCap, Star, Menu, X,
   ClipboardList, Users2, ChevronRight, Settings, ChevronDown,
-  UserCog, Eye, EyeOff, CheckCircle, AlertCircle, BookOpen, Database
+  UserCog, Eye, EyeOff, CheckCircle, AlertCircle, BookOpen, Database,
+  Library, MapPin, Megaphone,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -19,10 +20,14 @@ const navItems: NavItem[] = [
   { label: 'Students', to: '/students', icon: <Users size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Score Entry', to: '/scores/entry', icon: <ClipboardList size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Assessments', to: '/assessments', icon: <BookOpen size={18} />, roles: ['admin', 'teacher', 'student'] },
+  { label: 'Learning Hub', to: '/learning', icon: <Library size={18} />, roles: ['student'] },
+  { label: 'Study Plan', to: '/study-plan', icon: <MapPin size={18} />, roles: ['student'] },
   { label: 'Question Bank', to: '/question-bank', icon: <Database size={18} />, roles: ['admin', 'teacher'] },
+  { label: 'Content Manager', to: '/content', icon: <Library size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['admin', 'teacher'] },
   { label: 'AI Predictions', to: '/predictions', icon: <Brain size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Reports', to: '/reports', icon: <FileText size={18} />, roles: ['admin', 'teacher'] },
+  { label: 'Announcements', to: '/announcements', icon: <Megaphone size={18} />, roles: ['admin', 'teacher', 'student', 'parent'] },
   { label: 'Leaderboard', to: '/leaderboard', icon: <Trophy size={18} />, roles: ['admin', 'teacher', 'student'] },
   { label: 'Badges', to: '/badges', icon: <Star size={18} />, roles: ['admin', 'teacher', 'student'] },
   { label: 'Parent Portal', to: '/parent-portal', icon: <Users2 size={18} />, roles: ['parent', 'admin'] },
@@ -34,23 +39,23 @@ const navItems: NavItem[] = [
 const bottomNavItems: Record<string, { label: string; to: string; icon: React.ReactNode }[]> = {
   student: [
     { label: 'Dashboard',    to: '/dashboard',   icon: <LayoutDashboard size={20} /> },
+    { label: 'Learn',        to: '/learning',    icon: <Library size={20} /> },
     { label: 'Assessments',  to: '/assessments', icon: <BookOpen size={20} /> },
     { label: 'Leaderboard',  to: '/leaderboard', icon: <Trophy size={20} /> },
-    { label: 'Badges',       to: '/badges',      icon: <Star size={20} /> },
   ],
   teacher: [
     { label: 'Overview',   to: '/admin',         icon: <LayoutDashboard size={20} /> },
     { label: 'Students',   to: '/students',      icon: <Users size={20} /> },
-    { label: 'Scores',     to: '/scores/entry',  icon: <ClipboardList size={20} /> },
+    { label: 'Content',    to: '/content',       icon: <Library size={20} /> },
+    { label: 'Announce',   to: '/announcements', icon: <Megaphone size={20} /> },
     { label: 'Analytics',  to: '/analytics',     icon: <BarChart3 size={20} /> },
-    { label: 'Leaderboard',to: '/leaderboard',   icon: <Trophy size={20} /> },
   ],
   admin: [
     { label: 'Overview',   to: '/admin',         icon: <LayoutDashboard size={20} /> },
     { label: 'Students',   to: '/students',      icon: <Users size={20} /> },
-    { label: 'Scores',     to: '/scores/entry',  icon: <ClipboardList size={20} /> },
+    { label: 'Content',    to: '/content',       icon: <Library size={20} /> },
+    { label: 'Announce',   to: '/announcements', icon: <Megaphone size={20} /> },
     { label: 'Analytics',  to: '/analytics',     icon: <BarChart3 size={20} /> },
-    { label: 'Leaderboard',to: '/leaderboard',   icon: <Trophy size={20} /> },
   ],
   parent: [
     { label: 'Portal',     to: '/parent-portal', icon: <Users2 size={20} /> },

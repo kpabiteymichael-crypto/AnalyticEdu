@@ -31,6 +31,8 @@ import classRoutes from './routes/classes';
 import assessmentRoutes from './routes/assessments';
 import publicRoutes from './routes/public';
 import questionBankRoutes from './routes/question-bank';
+import lmsRoutes from './routes/lms';
+import announcementRoutes from './routes/announcements';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -172,6 +174,8 @@ app.use('/api/classes', classRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/question-bank', questionBankRoutes);
+app.use('/api/lms', lmsRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // ── Static files in production ───────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {

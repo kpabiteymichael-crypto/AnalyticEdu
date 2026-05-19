@@ -341,3 +341,87 @@ export const submissionAnswersRelations = relations(submissionAnswers, ({ one })
   question: one(questions, { fields: [submissionAnswers.questionId], references: [questions.id] }),
   selectedOption: one(questionOptions, { fields: [submissionAnswers.selectedOptionId], references: [questionOptions.id] }),
 }));
+
+// ─── Topics (LMS) ────────────────────────────────────────
+export const topics = pgTable('topics', {
+  id: serial('id').primaryKey(),
+  subject: text('subject').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  orderIndex: integer('order_index').notNull().default(0),
+  createdBy: integer('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  subjectIdx: index('topics_subject_idx').on(t.subject),
+}));
+
+// ─── Learning Materials (LMS) ────────────────────────────
+export const learningMaterials = pgTable('learning_materials', {
+  id: serial('id').primaryKey(),
+  topicId: integer('topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+  classId: integer('class_id').references(() => classes.id),
+  createdBy: integer('created_by').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  description: text('description'),
+  type: text('type').notNull().default('note'),
+  url: text('url'),
+  content: text('content'),
+  isPublished: boolean('is_published').notNull().default(false),
+  estimatedMins: integer('estimated_mins').default(10),
+  orderIndex: integer('order_index').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  topicIdx: index('lm_topic_idx').on(t.topicId),
+  classIdx: index('lm_class_idx').on(t.classId),
+}));
+
+// ─── Lesson Progress (LMS) ───────────────────────────────
+export const lessonProgress = pgTable('lesson_progress', {
+  id: serial('id').primaryKey(),
+  studentId: integer('student_id').notNull().references(() => students.id),
+  materialId: integer('material_id').notNull().references(() => learningMaterials.id, { onDelete: 'cascade' }),
+  completedAt: timestamp('completed_at'),
+  timeSpentMins: integer('time_spent_mins').default(0),
+  isBookmarked: boolean('is_bookmarked').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  uniqueProgress: uniqueIndex('lesson_progress_unique').on(t.studentId, t.materialId),
+}));
+
+// ─── Announcements ───────────────────────────────────────
+export const announcements = pgTable('announcements', {
+  id: serial('id').primaryKey(),
+  classId: integer('class_id').references(() => classes.id),
+  authorId: integer('author_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  isPinned: boolean('is_pinned').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  classIdx: index('announcements_class_idx').on(t.classId),
+}));
+
+// ─── LMS & Announcements Relations ───────────────────────
+export const topicsRelations = relations(topics, ({ one, many }) => ({
+  creator: one(users, { fields: [topics.createdBy], references: [users.id] }),
+  materials: many(learningMaterials),
+}));
+
+export const learningMaterialsRelations = relations(learningMaterials, ({ one, many }) => ({
+  topic: one(topics, { fields: [learningMaterials.topicId], references: [topics.id] }),
+  class: one(classes, { fields: [learningMaterials.classId], references: [classes.id] }),
+  creator: one(users, { fields: [learningMaterials.createdBy], references: [users.id] }),
+  progress: many(lessonProgress),
+}));
+
+export const lessonProgressRelations = relations(lessonProgress, ({ one }) => ({
+  student: one(students, { fields: [lessonProgress.studentId], references: [students.id] }),
+  material: one(learningMaterials, { fields: [lessonProgress.materialId], references: [learningMaterials.id] }),
+}));
+
+export const announcementsRelations = relations(announcements, ({ one }) => ({
+  class: one(classes, { fields: [announcements.classId], references: [classes.id] }),
+  author: one(users, { fields: [announcements.authorId], references: [users.id] }),
+}));

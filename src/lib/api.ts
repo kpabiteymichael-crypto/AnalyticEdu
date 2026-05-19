@@ -229,4 +229,46 @@ export const publicAssessmentApi = {
     api.get(`/public/assessment/${token}/result/${subId}`).then(r => r.data),
 };
 
+// ─── LMS ──────────────────────────────────────────────────
+export const lmsApi = {
+  getTopics:      (subject?: string) =>
+    api.get('/lms/topics', { params: subject ? { subject } : {} }).then(r => r.data),
+  createTopic:    (data: { subject: string; name: string; description?: string; orderIndex?: number }) =>
+    api.post('/lms/topics', data).then(r => r.data),
+  updateTopic:    (id: number, data: object) =>
+    api.put(`/lms/topics/${id}`, data).then(r => r.data),
+  deleteTopic:    (id: number) =>
+    api.delete(`/lms/topics/${id}`).then(r => r.data),
+  getMaterials:   (params?: { topicId?: number; subject?: string }) =>
+    api.get('/lms/materials', { params }).then(r => r.data),
+  createMaterial: (data: object) =>
+    api.post('/lms/materials', data).then(r => r.data),
+  updateMaterial: (id: number, data: object) =>
+    api.put(`/lms/materials/${id}`, data).then(r => r.data),
+  deleteMaterial: (id: number) =>
+    api.delete(`/lms/materials/${id}`).then(r => r.data),
+  myProgress:     () =>
+    api.get('/lms/my-progress').then(r => r.data),
+  markProgress:   (materialId: number, action: 'complete' | 'bookmark' | 'unbookmark', timeSpentMins?: number) =>
+    api.post(`/lms/progress/${materialId}`, { action, timeSpentMins }).then(r => r.data),
+};
+
+// ─── Announcements ────────────────────────────────────────
+export const announcementsApi = {
+  list:   (classId?: number) =>
+    api.get('/announcements', { params: classId ? { classId } : {} }).then(r => r.data),
+  create: (data: { classId?: number; title: string; body: string; isPinned?: boolean }) =>
+    api.post('/announcements', data).then(r => r.data),
+  update: (id: number, data: { title?: string; body?: string; isPinned?: boolean }) =>
+    api.put(`/announcements/${id}`, data).then(r => r.data),
+  delete: (id: number) =>
+    api.delete(`/announcements/${id}`).then(r => r.data),
+};
+
+// ─── Study Plan ───────────────────────────────────────────
+export const studyPlanApi = {
+  get: (studentId: number) =>
+    api.get(`/predictions/study-plan/${studentId}`).then(r => r.data),
+};
+
 export default api;
