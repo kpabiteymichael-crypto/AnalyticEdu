@@ -38,6 +38,7 @@ const StudyPlan         = lazy(() => import('./pages/StudyPlan'));
 const SubjectHub        = lazy(() => import('./pages/SubjectHub'));
 const SubjectDetail     = lazy(() => import('./pages/SubjectDetail'));
 const MentorRequests    = lazy(() => import('./pages/MentorRequests'));
+const SubjectManagement = lazy(() => import('./pages/SubjectManagement'));
 
 // ── Shared page-level loading fallback ───────────────────────────────────────
 function PageLoader() {
@@ -188,6 +189,11 @@ export default function App() {
                 } />
                 <Route path="mentor-requests" element={
                   <Suspense fallback={<PageLoader />}><MentorRequests /></Suspense>
+                } />
+                <Route path="subject-management" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <Suspense fallback={<PageLoader />}><SubjectManagement /></Suspense>
+                  </ProtectedRoute>
                 } />
                 <Route path="learning" element={
                   <ProtectedRoute roles={['student']}>

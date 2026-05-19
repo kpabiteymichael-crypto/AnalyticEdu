@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { lmsApi, assessmentsApi } from '../lib/api';
+import { lmsApi, assessmentsApi, subjectAssignmentsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   Calculator, FlaskConical, BookOpen, Landmark, Palette,
@@ -25,19 +25,22 @@ export default function SubjectHub() {
   const [materials, setMaterials] = useState<any[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [progress, setProgress] = useState<any[]>([]);
+  const [enrolledSubjects, setEnrolledSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [m, a, p] = await Promise.all([
+        const [m, a, p, mySubjects] = await Promise.all([
           lmsApi.getMaterials(),
           assessmentsApi.list(),
           lmsApi.myProgress(),
+          subjectAssignmentsApi.mySubjects().catch(() => []),
         ]);
         setMaterials(m);
         setAssessments(a);
         setProgress(p);
+        setEnrolledSubjects(mySubjects);
       } catch (e) {
         console.error(e);
       } finally {
@@ -113,7 +116,7 @@ export default function SubjectHub() {
 
       {/* Subject grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {SUBJECTS.map(subject => {
+        {(enrolledSubjects.length > 0 ? SUBJECTS.filter(s => enrolledSubjects.includes(s.key)) : SUBJECTS).map(subject => {
           const stats = getSubjectStats(subject.key);
           const Icon = subject.icon;
           const hasContent = stats.materials > 0 || stats.assessments > 0;

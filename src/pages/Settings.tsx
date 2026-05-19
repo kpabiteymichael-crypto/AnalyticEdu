@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { settingsApi, scoresApi, teamsApi, gamificationApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target, Trash2, RotateCw, Users, Plus, X, ShieldAlert, Award } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RotateCcw, Trophy, Zap, BookOpen, CheckCircle, AlertCircle, Target, Trash2, RotateCw, Users, Plus, X, ShieldAlert, Award, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
@@ -35,7 +35,7 @@ type Toast = { type: 'success' | 'error'; message: string };
 export default function Settings() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks' | 'badgexp' | 'reset' | 'demo'>('levels');
+  const [activeTab, setActiveTab] = useState<'levels' | 'xp' | 'subjects' | 'maxmarks' | 'badgexp' | 'mentorxp' | 'reset' | 'demo'>('levels');
   const [toast, setToast] = useState<Toast | null>(null);
 
   const [levelThresholds, setLevelThresholds] = useState<number[]>(DEFAULT_LEVEL_THRESHOLDS);
@@ -62,6 +62,11 @@ export default function Settings() {
   const [badgeXpList, setBadgeXpList] = useState<any[]>([]);
   const [savingBadgeXp, setSavingBadgeXp] = useState(false);
 
+  // Mentor rating XP state
+  const DEFAULT_MENTOR_RATING_XP: Record<string, number> = { '1': 10, '2': 20, '3': 30, '4': 45, '5': 60 };
+  const [mentorRatingXp, setMentorRatingXp] = useState<Record<string, number>>(DEFAULT_MENTOR_RATING_XP);
+  const [savingMentorXp, setSavingMentorXp] = useState(false);
+
   useEffect(() => {
     Promise.all([
       settingsApi.get(),
@@ -73,6 +78,7 @@ export default function Settings() {
       setXpRewards(data.xpRewards ?? DEFAULT_XP_REWARDS);
       setSubjectLabels(data.subjectLabels ?? DEFAULT_SUBJECT_LABELS);
       setSubjectMaxMarks(data.subjectMaxMarks ?? DEFAULT_SUBJECT_MAX_MARKS);
+      setMentorRatingXp(data.mentorRatingXp ?? DEFAULT_MENTOR_RATING_XP);
       setClasses(cls);
       setBadgeXpList(bdgs);
       setDemoAccounts(demo.length ? demo : [
@@ -159,6 +165,16 @@ export default function Settings() {
     } finally { setSavingBadgeXp(false); }
   };
 
+  const handleSaveMentorXp = async () => {
+    setSavingMentorXp(true);
+    try {
+      await settingsApi.updateMentorRatingXp(mentorRatingXp);
+      showToast('success', 'Mentor rating XP saved successfully');
+    } catch {
+      showToast('error', 'Failed to save mentor rating XP');
+    } finally { setSavingMentorXp(false); }
+  };
+
   const handleSaveDemo = async () => {
     setSavingDemo(true);
     try {
@@ -189,6 +205,7 @@ export default function Settings() {
     { id: 'subjects' as const, label: 'Subject Labels', icon: <BookOpen size={16} /> },
     { id: 'maxmarks' as const, label: 'Max Marks', icon: <Target size={16} /> },
     { id: 'badgexp' as const, label: 'Badge XP', icon: <Award size={16} /> },
+    { id: 'mentorxp' as const, label: 'Mentor XP', icon: <Star size={16} /> },
     { id: 'reset' as const, label: 'Reset Data', icon: <RotateCw size={16} /> },
     ...(user?.role === 'admin' ? [{ id: 'demo' as const, label: 'Demo Accounts', icon: <Users size={16} /> }] : []),
   ];
@@ -534,6 +551,63 @@ export default function Settings() {
           <div className="mt-5 p-3 bg-blue-50 rounded-xl">
             <p className="text-xs text-blue-700">
               <strong>Note:</strong> Changing XP rewards only affects badges earned from this point forward — previously awarded badges are not retroactively adjusted.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Mentor Rating XP */}
+      {activeTab === 'mentorxp' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Mentor Rating XP</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Set how many XP points a student earns when they rate a completed mentor session</p>
+            </div>
+            <button
+              onClick={handleSaveMentorXp}
+              disabled={savingMentorXp}
+              className="btn-primary flex items-center gap-2 text-sm px-4 py-2"
+            >
+              {savingMentorXp ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={14} />}
+              Save
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(star => (
+              <div key={star} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-1 w-28 flex-shrink-0">
+                  {Array.from({ length: star }).map((_, i) => (
+                    <Star key={i} size={16} className="fill-amber-400 text-amber-400" />
+                  ))}
+                  {Array.from({ length: 5 - star }).map((_, i) => (
+                    <Star key={i} size={16} className="text-slate-300" />
+                  ))}
+                </div>
+                <span className="text-sm text-slate-600 w-16">{star} star{star > 1 ? 's' : ''}</span>
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={999}
+                    value={mentorRatingXp[star.toString()] ?? 0}
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 0)
+                        setMentorRatingXp(prev => ({ ...prev, [star.toString()]: val }));
+                    }}
+                    className="input w-24 py-1.5 text-sm text-center"
+                  />
+                  <span className="text-sm text-slate-500">XP</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 p-3 bg-blue-50 rounded-xl">
+            <p className="text-xs text-blue-700">
+              <strong>How it works:</strong> When a student submits a rating for a completed mentor session, they automatically receive the XP shown here based on the star rating they gave.
             </p>
           </div>
         </div>

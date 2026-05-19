@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import { db } from '../db/index';
-import { mentorRequests, mentorSessions, mentorRatings, students, users } from '../db/schema';
+import { mentorRequests, mentorSessions, mentorRatings, students, users, activityLogs } from '../db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import {
+  getSettingJson, DEFAULT_MENTOR_RATING_XP, DEFAULT_LEVEL_THRESHOLDS, getLevelFromThresholds,
+} from './settings';
 
 const router = Router();
 
@@ -209,6 +212,29 @@ router.post('/sessions/:id/rate', authenticate, async (req: AuthRequest, res) =>
         rating,
         comment: comment || null,
       }).returning();
+    }
+
+    // Award XP to student based on their rating (only on new ratings, not updates)
+    if (!existing[0]) {
+      const [mentorRatingXp, levelThresholds] = await Promise.all([
+        getSettingJson('mentor_rating_xp', DEFAULT_MENTOR_RATING_XP),
+        getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
+      ]);
+      const xpEarned = mentorRatingXp[rating.toString()] ?? 0;
+      if (xpEarned > 0) {
+        const [fresh] = await db.select().from(students).where(eq(students.id, student.id)).limit(1);
+        const newXp = fresh.xp + xpEarned;
+        const newLevel = getLevelFromThresholds(newXp, levelThresholds);
+        await db.update(students)
+          .set({ xp: newXp, level: newLevel, lastActiveAt: new Date() })
+          .where(eq(students.id, student.id));
+        await db.insert(activityLogs).values({
+          studentId: student.id,
+          activityType: 'mentor_session_rated',
+          description: `Rated mentor session ${rating}★ — earned +${xpEarned} XP`,
+          xpEarned,
+        });
+      }
     }
 
     return res.status(201).json(result);

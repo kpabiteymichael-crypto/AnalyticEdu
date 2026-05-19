@@ -178,6 +178,8 @@ export const settingsApi = {
     api.put('/settings/xp-rewards', { rewards }).then(r => r.data),
   updateSubjectLabels: (labels: Record<string, string>) =>
     api.put('/settings/subject-labels', { labels }).then(r => r.data),
+  updateMentorRatingXp: (xp: Record<string, number>) =>
+    api.put('/settings/mentor-rating-xp', { xp }).then(r => r.data),
 };
 
 // ─── Assessments ──────────────────────────────────────────
@@ -289,6 +291,21 @@ export const mentorsApi = {
     api.post(`/mentors/sessions/${sessionId}/rate`, data).then(r => r.data),
   stats:           () =>
     api.get('/mentors/stats').then(r => r.data),
+};
+
+// ─── Subject Assignments ──────────────────────────────────
+export const subjectAssignmentsApi = {
+  mySubjects:         () => api.get('/subject-assignments/my-subjects').then(r => r.data),
+  getStudents:        () => api.get('/subject-assignments/students').then(r => r.data),
+  getTeachers:        () => api.get('/subject-assignments/teachers').then(r => r.data),
+  addStudentSubject:  (studentId: number, subject: string) =>
+    api.post(`/subject-assignments/student/${studentId}/add`, { subject }).then(r => r.data),
+  dropStudentSubject: (studentId: number, subject: string) =>
+    api.delete(`/subject-assignments/student/${studentId}/${subject}`).then(r => r.data),
+  addTeacherSubject:  (userId: number, subject: string) =>
+    api.post(`/subject-assignments/teacher/${userId}/add`, { subject }).then(r => r.data),
+  dropTeacherSubject: (userId: number, subject: string) =>
+    api.delete(`/subject-assignments/teacher/${userId}/${subject}`).then(r => r.data),
 };
 
 export default api;

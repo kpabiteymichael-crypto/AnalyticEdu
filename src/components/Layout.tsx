@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
   { label: 'My Subjects', to: '/subjects', icon: <Library size={18} />, roles: ['student'] },
   { label: 'Study Plan', to: '/study-plan', icon: <MapPin size={18} />, roles: ['student'] },
   { label: 'Mentor Requests', to: '/mentor-requests', icon: <Users size={18} />, roles: ['student', 'teacher', 'admin'] },
+  { label: 'Subject Management', to: '/subject-management', icon: <Library size={18} />, roles: ['admin'] },
   { label: 'Question Bank', to: '/question-bank', icon: <Database size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Content Manager', to: '/content', icon: <Library size={18} />, roles: ['admin', 'teacher'] },
   { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['admin', 'teacher'] },

@@ -54,6 +54,14 @@ export const RANK_BADGE_BONUSES = {
   none: 0,
 };
 
+export const DEFAULT_MENTOR_RATING_XP: Record<string, number> = {
+  '1': 10,
+  '2': 20,
+  '3': 30,
+  '4': 45,
+  '5': 60,
+};
+
 export function getRankBadgeBonusMultiplier(avgPct: number): number {
   if (avgPct >= 95) return RANK_BADGE_BONUSES.diamond;
   if (avgPct >= 85) return RANK_BADGE_BONUSES.gold;
@@ -102,13 +110,14 @@ export function getLevelFromThresholds(xp: number, thresholds: number[]): number
 // GET /api/settings
 router.get('/', authenticate, authorize('admin', 'teacher'), async (_req, res) => {
   try {
-    const [levelThresholds, xpRewards, subjectLabels, subjectMaxMarks] = await Promise.all([
+    const [levelThresholds, xpRewards, subjectLabels, subjectMaxMarks, mentorRatingXp] = await Promise.all([
       getSettingJson('level_thresholds', DEFAULT_LEVEL_THRESHOLDS),
       getSettingJson('xp_rewards', DEFAULT_XP_REWARDS),
       getSettingJson('subject_labels', DEFAULT_SUBJECT_LABELS),
       getSettingJson('subject_max_marks', DEFAULT_SUBJECT_MAX_MARKS),
+      getSettingJson('mentor_rating_xp', DEFAULT_MENTOR_RATING_XP),
     ]);
-    return res.json({ levelThresholds, xpRewards, subjectLabels, subjectMaxMarks, rankBadgeBonuses: RANK_BADGE_BONUSES });
+    return res.json({ levelThresholds, xpRewards, subjectLabels, subjectMaxMarks, mentorRatingXp, rankBadgeBonuses: RANK_BADGE_BONUSES });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch settings' });
@@ -193,6 +202,18 @@ router.put('/subject-max-marks', authenticate, authorize('admin', 'teacher'), as
   } catch (err: any) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     return res.status(500).json({ error: 'Failed to update subject max marks' });
+  }
+});
+
+// PUT /api/settings/mentor-rating-xp
+router.put('/mentor-rating-xp', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { xp } = z.object({ xp: z.record(z.number().min(0)) }).parse(req.body);
+    await setSetting('mentor_rating_xp', JSON.stringify(xp));
+    return res.json({ success: true, xp });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    return res.status(500).json({ error: 'Failed to update mentor rating XP' });
   }
 });
 

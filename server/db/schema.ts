@@ -426,6 +426,35 @@ export const announcementsRelations = relations(announcements, ({ one }) => ({
   author: one(users, { fields: [announcements.authorId], references: [users.id] }),
 }));
 
+// ─── Subject Assignments ─────────────────────────────────
+export const studentSubjects = pgTable('student_subjects', {
+  id: serial('id').primaryKey(),
+  studentId: integer('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+  subject: text('subject').notNull(),
+  enrolledAt: timestamp('enrolled_at').defaultNow().notNull(),
+}, (t) => ({
+  ssUnique: uniqueIndex('student_subject_unique').on(t.studentId, t.subject),
+  ssStudentIdx: index('ss_student_idx').on(t.studentId),
+}));
+
+export const teacherSubjects = pgTable('teacher_subjects', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subject: text('subject').notNull(),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+}, (t) => ({
+  tsUnique: uniqueIndex('teacher_subject_unique').on(t.userId, t.subject),
+  tsUserIdx: index('ts_user_idx').on(t.userId),
+}));
+
+export const studentSubjectsRelations = relations(studentSubjects, ({ one }) => ({
+  student: one(students, { fields: [studentSubjects.studentId], references: [students.id] }),
+}));
+
+export const teacherSubjectsRelations = relations(teacherSubjects, ({ one }) => ({
+  user: one(users, { fields: [teacherSubjects.userId], references: [users.id] }),
+}));
+
 // ─── Mentor Requests ─────────────────────────────────────
 export const mentorRequests = pgTable('mentor_requests', {
   id: serial('id').primaryKey(),

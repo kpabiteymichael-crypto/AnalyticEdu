@@ -372,6 +372,29 @@ export async function runMigrations() {
     CREATE INDEX IF NOT EXISTS announcements_class_idx ON announcements(class_id);
   `);
 
+  // Subject assignments
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS student_subjects (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      enrolled_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS student_subject_unique ON student_subjects(student_id, subject);
+    CREATE INDEX IF NOT EXISTS ss_student_idx ON student_subjects(student_id);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS teacher_subjects (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      assigned_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS teacher_subject_unique ON teacher_subjects(user_id, subject);
+    CREATE INDEX IF NOT EXISTS ts_user_idx ON teacher_subjects(user_id);
+  `);
+
   // Mentor system
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS mentor_requests (
