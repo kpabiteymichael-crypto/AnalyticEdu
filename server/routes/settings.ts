@@ -205,6 +205,69 @@ router.put('/subject-max-marks', authenticate, authorize('admin', 'teacher'), as
   }
 });
 
+// GET /api/settings/subjects — dynamic list of all subject keys + labels
+router.get('/subjects', authenticate, async (_req, res) => {
+  try {
+    const labels = await getSettingJson('subject_labels', DEFAULT_SUBJECT_LABELS);
+    return res.json(Object.entries(labels).map(([key, label]) => ({ key, label })));
+  } catch {
+    return res.status(500).json({ error: 'Failed to get subjects' });
+  }
+});
+
+// POST /api/settings/subjects — add a new custom subject
+router.post('/subjects', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { key, label, maxMarks } = z.object({
+      key: z.string().min(1).max(30).regex(/^[a-z0-9_]+$/, 'Key must be lowercase letters, digits, or underscores only'),
+      label: z.string().min(1).max(100),
+      maxMarks: z.number().min(1).max(10000).optional().default(100),
+    }).parse(req.body);
+
+    const [currentLabels, currentMarks] = await Promise.all([
+      getSettingJson('subject_labels', DEFAULT_SUBJECT_LABELS),
+      getSettingJson('subject_max_marks', DEFAULT_SUBJECT_MAX_MARKS),
+    ]);
+
+    if (Object.prototype.hasOwnProperty.call(currentLabels, key)) {
+      return res.status(400).json({ error: `Subject key "${key}" already exists` });
+    }
+
+    (currentLabels as Record<string, string>)[key] = label;
+    (currentMarks as Record<string, number>)[key] = maxMarks;
+
+    await Promise.all([
+      setSetting('subject_labels', JSON.stringify(currentLabels)),
+      setSetting('subject_max_marks', JSON.stringify(currentMarks)),
+    ]);
+
+    return res.status(201).json({ success: true, key, label, maxMarks });
+  } catch (err: any) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid input' });
+    return res.status(500).json({ error: 'Failed to add subject' });
+  }
+});
+
+// DELETE /api/settings/subjects/:key — remove a subject
+router.delete('/subjects/:key', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const [currentLabels, currentMarks] = await Promise.all([
+      getSettingJson('subject_labels', DEFAULT_SUBJECT_LABELS),
+      getSettingJson('subject_max_marks', DEFAULT_SUBJECT_MAX_MARKS),
+    ]);
+    delete (currentLabels as Record<string, string>)[key];
+    delete (currentMarks as Record<string, number>)[key];
+    await Promise.all([
+      setSetting('subject_labels', JSON.stringify(currentLabels)),
+      setSetting('subject_max_marks', JSON.stringify(currentMarks)),
+    ]);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to remove subject' });
+  }
+});
+
 // PUT /api/settings/mentor-rating-xp
 router.put('/mentor-rating-xp', authenticate, authorize('admin'), async (req, res) => {
   try {

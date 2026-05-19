@@ -67,6 +67,13 @@ export default function Settings() {
   const [mentorRatingXp, setMentorRatingXp] = useState<Record<string, number>>(DEFAULT_MENTOR_RATING_XP);
   const [savingMentorXp, setSavingMentorXp] = useState(false);
 
+  // New subject form state
+  const [newSubjectLabel, setNewSubjectLabel] = useState('');
+  const [newSubjectKey, setNewSubjectKey] = useState('');
+  const [newSubjectMaxMarks, setNewSubjectMaxMarks] = useState(100);
+  const [addingSubject, setAddingSubject] = useState(false);
+  const [removingSubject, setRemovingSubject] = useState<string | null>(null);
+
   useEffect(() => {
     Promise.all([
       settingsApi.get(),
@@ -163,6 +170,37 @@ export default function Settings() {
     } catch {
       showToast('error', 'Failed to save badge XP rewards');
     } finally { setSavingBadgeXp(false); }
+  };
+
+  const generateKey = (label: string) =>
+    label.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/, '');
+
+  const handleAddSubject = async () => {
+    if (!newSubjectLabel.trim() || !newSubjectKey.trim()) return;
+    setAddingSubject(true);
+    try {
+      await settingsApi.addSubject(newSubjectKey, newSubjectLabel.trim(), newSubjectMaxMarks);
+      setSubjectLabels(prev => ({ ...prev, [newSubjectKey]: newSubjectLabel.trim() }));
+      setSubjectMaxMarks(prev => ({ ...prev, [newSubjectKey]: newSubjectMaxMarks }));
+      setNewSubjectLabel('');
+      setNewSubjectKey('');
+      setNewSubjectMaxMarks(100);
+      showToast('success', `Subject "${newSubjectLabel.trim()}" added successfully`);
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.error ?? 'Failed to add subject');
+    } finally { setAddingSubject(false); }
+  };
+
+  const handleRemoveSubject = async (key: string) => {
+    setRemovingSubject(key);
+    try {
+      await settingsApi.removeSubject(key);
+      setSubjectLabels(prev => { const n = { ...prev }; delete n[key]; return n; });
+      setSubjectMaxMarks(prev => { const n = { ...prev }; delete n[key]; return n; });
+      showToast('success', `Subject "${key}" removed`);
+    } catch {
+      showToast('error', 'Failed to remove subject');
+    } finally { setRemovingSubject(null); }
   };
 
   const handleSaveMentorXp = async () => {
@@ -394,25 +432,86 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {SUBJECT_KEYS.map(key => (
-              <div key={key} className="flex items-center gap-4 bg-slate-50 rounded-xl p-4">
-                <div className="w-20 text-xs font-bold text-slate-500 uppercase tracking-wider">{key}</div>
-                <div className="text-slate-300">→</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {Object.keys(subjectLabels).map(key => (
+              <div key={key} className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                <div className="w-16 text-xs font-bold text-slate-500 uppercase tracking-wider flex-shrink-0">{key}</div>
+                <div className="text-slate-300 flex-shrink-0">→</div>
                 <input
                   type="text"
                   value={subjectLabels[key] ?? key}
                   onChange={e => setSubjectLabels(prev => ({ ...prev, [key]: e.target.value }))}
-                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-0"
                   placeholder={`Display name for ${key}`}
                 />
+                <button
+                  onClick={() => handleRemoveSubject(key)}
+                  disabled={removingSubject === key}
+                  title="Remove subject"
+                  className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                >
+                  {removingSubject === key
+                    ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    : <Trash2 size={14} />}
+                </button>
               </div>
             ))}
           </div>
 
+          {/* Add new subject form */}
+          <div className="mt-5 border border-dashed border-slate-300 rounded-xl p-4">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <Plus size={13} /> Add New Subject
+            </p>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-1">
+                <label className="text-xs text-slate-500 mb-1 block">Subject Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Chemistry"
+                  value={newSubjectLabel}
+                  onChange={e => {
+                    setNewSubjectLabel(e.target.value);
+                    setNewSubjectKey(generateKey(e.target.value));
+                  }}
+                  className="input text-sm py-2 w-full"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Key (auto-generated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. chemistry"
+                  value={newSubjectKey}
+                  onChange={e => setNewSubjectKey(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  className="input text-sm py-2 w-full font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Max Marks</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={newSubjectMaxMarks}
+                  onChange={e => setNewSubjectMaxMarks(parseInt(e.target.value) || 100)}
+                  className="input text-sm py-2 w-full"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleAddSubject}
+              disabled={addingSubject || !newSubjectLabel.trim() || !newSubjectKey.trim()}
+              className="mt-3 btn-primary flex items-center gap-2 text-sm px-4 py-2 disabled:opacity-50"
+            >
+              {addingSubject ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Plus size={14} />}
+              Add Subject
+            </button>
+          </div>
+
           <div className="mt-4 p-3 bg-blue-50 rounded-xl">
             <p className="text-xs text-blue-700">
-              <strong>Note:</strong> These labels are used for display only. The underlying subject identifiers (math, science, etc.) remain unchanged in the database.
+              <strong>Note:</strong> These labels are used for display across the platform. The key is the internal identifier stored in the database. Removing a subject hides it from new assignments but does not delete existing scores or assessments.
             </p>
           </div>
         </div>

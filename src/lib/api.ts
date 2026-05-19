@@ -180,6 +180,12 @@ export const settingsApi = {
     api.put('/settings/subject-labels', { labels }).then(r => r.data),
   updateMentorRatingXp: (xp: Record<string, number>) =>
     api.put('/settings/mentor-rating-xp', { xp }).then(r => r.data),
+  listSubjects: () =>
+    api.get('/settings/subjects').then(r => r.data) as Promise<{ key: string; label: string }[]>,
+  addSubject: (key: string, label: string, maxMarks: number) =>
+    api.post('/settings/subjects', { key, label, maxMarks }).then(r => r.data),
+  removeSubject: (key: string) =>
+    api.delete(`/settings/subjects/${key}`).then(r => r.data),
 };
 
 // ─── Assessments ──────────────────────────────────────────

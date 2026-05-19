@@ -4,8 +4,12 @@ import { studentSubjects, teacherSubjects, students, users } from '../db/schema'
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { getSettingJson, DEFAULT_SUBJECT_LABELS } from './settings';
 
-const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
+async function getValidSubjectKeys(): Promise<string[]> {
+  const labels = await getSettingJson('subject_labels', DEFAULT_SUBJECT_LABELS);
+  return Object.keys(labels as Record<string, string>);
+}
 
 const router = Router();
 
@@ -30,7 +34,7 @@ router.get('/my-subjects', authenticate, async (req: AuthRequest, res) => {
       return res.json(rows.map(r => r.subject));
     }
 
-    return res.json(SUBJECT_KEYS);
+    return res.json(await getValidSubjectKeys());
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch subjects' });
@@ -94,7 +98,8 @@ router.post('/student/:studentId/add', authenticate, authorize('admin'), async (
   try {
     const studentId = parseInt(req.params.studentId);
     const { subject } = req.body;
-    if (!subject || !SUBJECT_KEYS.includes(subject)) {
+    const validKeys = await getValidSubjectKeys();
+    if (!subject || !validKeys.includes(subject)) {
       return res.status(400).json({ error: 'Invalid subject' });
     }
     await db.insert(studentSubjects).values({ studentId, subject }).onConflictDoNothing();
@@ -125,7 +130,8 @@ router.post('/teacher/:userId/add', authenticate, authorize('admin'), async (req
   try {
     const userId = parseInt(req.params.userId);
     const { subject } = req.body;
-    if (!subject || !SUBJECT_KEYS.includes(subject)) {
+    const validKeys = await getValidSubjectKeys();
+    if (!subject || !validKeys.includes(subject)) {
       return res.status(400).json({ error: 'Invalid subject' });
     }
     await db.insert(teacherSubjects).values({ userId, subject }).onConflictDoNothing();

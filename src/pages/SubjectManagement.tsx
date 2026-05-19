@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react';
-import { subjectAssignmentsApi } from '../lib/api';
+import { subjectAssignmentsApi, settingsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   BookOpen, Search, Users, GraduationCap, Check, X, CheckCircle, AlertCircle,
 } from 'lucide-react';
 
-const SUBJECT_KEYS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
-const SUBJECT_LABELS: Record<string, string> = {
-  math: 'Mathematics', science: 'Science', english: 'English', history: 'History',
-  art: 'Art', pe: 'Physical Ed', ict: 'ICT', music: 'Music',
-};
 const SUBJECT_COLORS: Record<string, string> = {
-  math: 'bg-blue-100 text-blue-700 border-blue-200',
+  math:    'bg-blue-100 text-blue-700 border-blue-200',
   science: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   english: 'bg-violet-100 text-violet-700 border-violet-200',
   history: 'bg-amber-100 text-amber-700 border-amber-200',
-  art: 'bg-pink-100 text-pink-700 border-pink-200',
-  pe: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  ict: 'bg-slate-100 text-slate-700 border-slate-200',
-  music: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+  art:     'bg-pink-100 text-pink-700 border-pink-200',
+  pe:      'bg-cyan-100 text-cyan-700 border-cyan-200',
+  ict:     'bg-slate-100 text-slate-700 border-slate-200',
+  music:   'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
 };
+const FALLBACK_COLORS = [
+  'bg-red-100 text-red-700 border-red-200',
+  'bg-teal-100 text-teal-700 border-teal-200',
+  'bg-orange-100 text-orange-700 border-orange-200',
+  'bg-lime-100 text-lime-700 border-lime-200',
+  'bg-indigo-100 text-indigo-700 border-indigo-200',
+];
 
+type SubjectEntry = { key: string; label: string };
 type PersonRow = {
   id: number;
   user_id?: number;
@@ -29,13 +32,13 @@ type PersonRow = {
   role?: string;
   subjects: string[];
 };
-
 type Toast = { type: 'success' | 'error'; message: string };
 
 export default function SubjectManagement() {
   const [tab, setTab] = useState<'students' | 'teachers'>('students');
   const [students, setStudents] = useState<PersonRow[]>([]);
   const [teachers, setTeachers] = useState<PersonRow[]>([]);
+  const [allSubjects, setAllSubjects] = useState<SubjectEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PersonRow | null>(null);
@@ -51,11 +54,16 @@ export default function SubjectManagement() {
     Promise.all([
       subjectAssignmentsApi.getStudents(),
       subjectAssignmentsApi.getTeachers(),
-    ]).then(([s, t]) => {
+      settingsApi.listSubjects(),
+    ]).then(([s, t, subs]) => {
       setStudents(s);
       setTeachers(t);
+      setAllSubjects(subs);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
+
+  const getSubjectColor = (key: string, index: number) =>
+    SUBJECT_COLORS[key] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 
   const list = tab === 'students' ? students : teachers;
   const filtered = list.filter(p =>
@@ -69,23 +77,16 @@ export default function SubjectManagement() {
     setToggling(subject);
     try {
       if (tab === 'students') {
-        if (hasIt) {
-          await subjectAssignmentsApi.dropStudentSubject(selected.id, subject);
-        } else {
-          await subjectAssignmentsApi.addStudentSubject(selected.id, subject);
-        }
+        if (hasIt) await subjectAssignmentsApi.dropStudentSubject(selected.id, subject);
+        else        await subjectAssignmentsApi.addStudentSubject(selected.id, subject);
       } else {
-        if (hasIt) {
-          await subjectAssignmentsApi.dropTeacherSubject(selected.id, subject);
-        } else {
-          await subjectAssignmentsApi.addTeacherSubject(selected.id, subject);
-        }
+        if (hasIt) await subjectAssignmentsApi.dropTeacherSubject(selected.id, subject);
+        else        await subjectAssignmentsApi.addTeacherSubject(selected.id, subject);
       }
 
       const newSubjects = hasIt
         ? selected.subjects.filter(s => s !== subject)
         : [...selected.subjects, subject];
-
       const updatedPerson = { ...selected, subjects: newSubjects };
       setSelected(updatedPerson);
 
@@ -94,8 +95,7 @@ export default function SubjectManagement() {
       } else {
         setTeachers(prev => prev.map(t => t.id === selected.id ? { ...t, subjects: newSubjects } : t));
       }
-
-      showToast('success', `${hasIt ? 'Removed' : 'Added'} ${SUBJECT_LABELS[subject]}`);
+      showToast('success', `${hasIt ? 'Removed' : 'Added'} ${allSubjects.find(s => s.key === subject)?.label ?? subject}`);
     } catch {
       showToast('error', 'Failed to update subject assignment');
     } finally {
@@ -200,7 +200,7 @@ export default function SubjectManagement() {
             <div className="flex flex-col items-center justify-center h-48 text-slate-400">
               <BookOpen size={32} className="mb-3 opacity-40" />
               <p className="text-sm font-medium">Select a {tab === 'students' ? 'student' : 'teacher'} to manage their subjects</p>
-              <p className="text-xs mt-1">If no subjects are assigned, they can access all 8 subjects</p>
+              <p className="text-xs mt-1">If no subjects are assigned, they can access all {allSubjects.length} subjects</p>
             </div>
           ) : (
             <>
@@ -223,22 +223,23 @@ export default function SubjectManagement() {
                 Toggle subjects — checked means assigned
               </p>
 
-              <div className="grid grid-cols-2 gap-2">
-                {SUBJECT_KEYS.map(key => {
+              <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                {allSubjects.map(({ key, label }, i) => {
                   const has = selected.subjects.includes(key);
                   const isLoading = toggling === key;
+                  const colorClass = getSubjectColor(key, i);
                   return (
                     <button
                       key={key}
                       onClick={() => toggleSubject(key)}
                       disabled={!!toggling}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${has ? `${SUBJECT_COLORS[key]} border` : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'} ${isLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all text-left ${has ? `${colorClass} border` : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'} ${isLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                     >
-                      <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${has ? 'bg-current opacity-20' : 'border border-slate-300'}`}>
-                        {has && <Check size={12} className="text-current opacity-100" style={{ filter: 'none' }} />}
+                      <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${has ? 'border-current bg-current/20' : 'border-slate-300'}`}>
+                        {has && <Check size={10} />}
                       </div>
-                      {SUBJECT_LABELS[key]}
-                      {isLoading && <div className="ml-auto w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />}
+                      <span className="truncate">{label}</span>
+                      {isLoading && <div className="ml-auto w-3 h-3 border border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />}
                     </button>
                   );
                 })}
@@ -246,25 +247,26 @@ export default function SubjectManagement() {
 
               <div className="mt-4 flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    const missing = SUBJECT_KEYS.filter(k => !selected.subjects.includes(k));
-                    missing.forEach(k => setTimeout(() => toggleSubject(k), 0));
+                  onClick={async () => {
+                    for (const { key } of allSubjects) {
+                      if (!selected.subjects.includes(key)) await toggleSubject(key);
+                    }
                   }}
-                  disabled={!!toggling || selected.subjects.length === SUBJECT_KEYS.length}
+                  disabled={!!toggling || selected.subjects.length === allSubjects.length}
                   className="text-xs px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 font-semibold hover:bg-primary-100 disabled:opacity-40 transition-colors flex items-center gap-1"
                 >
                   <Check size={12} /> Assign All
                 </button>
                 <button
-                  onClick={() => {
-                    selected.subjects.forEach(k => setTimeout(() => toggleSubject(k), 0));
+                  onClick={async () => {
+                    for (const key of [...selected.subjects]) await toggleSubject(key);
                   }}
                   disabled={!!toggling || selected.subjects.length === 0}
                   className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-700 font-semibold hover:bg-red-100 disabled:opacity-40 transition-colors flex items-center gap-1"
                 >
                   <X size={12} /> Clear All
                 </button>
-                <span className="ml-auto text-xs text-slate-400">{selected.subjects.length} / {SUBJECT_KEYS.length} assigned</span>
+                <span className="ml-auto text-xs text-slate-400">{selected.subjects.length} / {allSubjects.length} assigned</span>
               </div>
             </>
           )}
