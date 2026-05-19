@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { lmsApi, teamsApi } from '../lib/api';
+import { lmsApi, teamsApi, subjectAssignmentsApi, settingsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   BookOpen, Plus, Trash2, Edit3, Eye, EyeOff, Save, X,
@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
-const SUBJECTS = ['math', 'science', 'english', 'history', 'art', 'pe', 'ict', 'music'];
+type SubjectEntry = { key: string; label: string };
 const TYPES = [
   { value: 'note',   label: 'Note (inline text)', icon: <FileText size={14} /> },
   { value: 'pdf',    label: 'PDF document',        icon: <FileText size={14} /> },
@@ -31,7 +31,8 @@ function emptyTopic(subject = '') {
 
 export default function ContentManager() {
   const [activeTab, setActiveTab] = useState<'topics' | 'materials'>('materials');
-  const [selectedSubject, setSelectedSubject] = useState('math');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [availableSubjects, setAvailableSubjects] = useState<SubjectEntry[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
@@ -58,12 +59,35 @@ export default function ContentManager() {
       setClasses(c);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    async function init() {
+      try {
+        const [myKeys, allSubs, t, m, c] = await Promise.all([
+          subjectAssignmentsApi.mySubjects().catch(() => [] as string[]),
+          settingsApi.listSubjects().catch(() => [] as SubjectEntry[]),
+          lmsApi.getTopics(),
+          lmsApi.getMaterials(),
+          teamsApi.list(),
+        ]);
+        const subs: SubjectEntry[] = allSubs.length
+          ? (myKeys.length > 0 ? allSubs.filter(s => myKeys.includes(s.key)) : allSubs)
+          : myKeys.map(k => ({ key: k, label: k }));
+        setAvailableSubjects(subs);
+        setSelectedSubject(subs[0]?.key ?? '');
+        setTopics(t);
+        setMaterials(m);
+        setClasses(c);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
+  }, []);
 
   const filteredTopics = topics.filter(t => t.subject === selectedSubject);
   const filteredMaterials = materials.filter(m => m.topicSubject === selectedSubject);
@@ -181,15 +205,15 @@ export default function ContentManager() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject:</span>
           <div className="flex gap-1 flex-wrap">
-            {SUBJECTS.map(s => (
+            {availableSubjects.map(s => (
               <button
-                key={s}
-                onClick={() => setSelectedSubject(s)}
+                key={s.key}
+                onClick={() => setSelectedSubject(s.key)}
                 className={clsx(
                   'px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all',
-                  selectedSubject === s ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  selectedSubject === s.key ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 )}
-              >{s}</button>
+              >{s.label}</button>
             ))}
           </div>
         </div>
@@ -317,7 +341,7 @@ export default function ContentManager() {
               <div>
                 <label className="label">Subject</label>
                 <select value={topicForm.subject} onChange={e => setTopicForm(p => ({ ...p, subject: e.target.value }))} className="input" required>
-                  {SUBJECTS.map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+                  {availableSubjects.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                 </select>
               </div>
               <div>
