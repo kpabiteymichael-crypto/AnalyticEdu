@@ -425,3 +425,59 @@ export const announcementsRelations = relations(announcements, ({ one }) => ({
   class: one(classes, { fields: [announcements.classId], references: [classes.id] }),
   author: one(users, { fields: [announcements.authorId], references: [users.id] }),
 }));
+
+// ─── Mentor Requests ─────────────────────────────────────
+export const mentorRequests = pgTable('mentor_requests', {
+  id: serial('id').primaryKey(),
+  studentId: integer('student_id').notNull().references(() => students.id),
+  subject: text('subject').notNull(),
+  message: text('message'),
+  status: text('status').notNull().default('pending'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  mrStudentIdx: index('mr_student_idx').on(t.studentId),
+  mrStatusIdx: index('mr_status_idx').on(t.status),
+}));
+
+export const mentorSessions = pgTable('mentor_sessions', {
+  id: serial('id').primaryKey(),
+  requestId: integer('request_id').notNull().references(() => mentorRequests.id),
+  mentorId: integer('mentor_id').notNull().references(() => users.id),
+  studentId: integer('student_id').notNull().references(() => students.id),
+  scheduledAt: timestamp('scheduled_at'),
+  notes: text('notes'),
+  isCompleted: boolean('is_completed').notNull().default(false),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const mentorRatings = pgTable('mentor_ratings', {
+  id: serial('id').primaryKey(),
+  sessionId: integer('session_id').notNull().references(() => mentorSessions.id),
+  studentId: integer('student_id').notNull().references(() => students.id),
+  mentorId: integer('mentor_id').notNull().references(() => users.id),
+  rating: integer('rating').notNull(),
+  comment: text('comment'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  mentorRatingUnique: uniqueIndex('mentor_rating_session_unique').on(t.sessionId),
+}));
+
+export const mentorRequestsRelations = relations(mentorRequests, ({ one, many }) => ({
+  student: one(students, { fields: [mentorRequests.studentId], references: [students.id] }),
+  sessions: many(mentorSessions),
+}));
+
+export const mentorSessionsRelations = relations(mentorSessions, ({ one, many }) => ({
+  request: one(mentorRequests, { fields: [mentorSessions.requestId], references: [mentorRequests.id] }),
+  mentor: one(users, { fields: [mentorSessions.mentorId], references: [users.id] }),
+  student: one(students, { fields: [mentorSessions.studentId], references: [students.id] }),
+  ratings: many(mentorRatings),
+}));
+
+export const mentorRatingsRelations = relations(mentorRatings, ({ one }) => ({
+  session: one(mentorSessions, { fields: [mentorRatings.sessionId], references: [mentorSessions.id] }),
+  student: one(students, { fields: [mentorRatings.studentId], references: [students.id] }),
+  mentor: one(users, { fields: [mentorRatings.mentorId], references: [users.id] }),
+}));

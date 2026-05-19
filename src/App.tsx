@@ -35,6 +35,9 @@ const LearningHub       = lazy(() => import('./pages/LearningHub'));
 const ContentManager    = lazy(() => import('./pages/ContentManager'));
 const Announcements     = lazy(() => import('./pages/Announcements'));
 const StudyPlan         = lazy(() => import('./pages/StudyPlan'));
+const SubjectHub        = lazy(() => import('./pages/SubjectHub'));
+const SubjectDetail     = lazy(() => import('./pages/SubjectDetail'));
+const MentorRequests    = lazy(() => import('./pages/MentorRequests'));
 
 // ── Shared page-level loading fallback ───────────────────────────────────────
 function PageLoader() {
@@ -172,6 +175,19 @@ export default function App() {
                   <ProtectedRoute roles={['admin', 'teacher']}>
                     <Suspense fallback={<PageLoader />}><QuestionBank /></Suspense>
                   </ProtectedRoute>
+                } />
+                <Route path="subjects" element={
+                  <ProtectedRoute roles={['student']}>
+                    <Suspense fallback={<PageLoader />}><SubjectHub /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="subjects/:subject" element={
+                  <ProtectedRoute roles={['student']}>
+                    <Suspense fallback={<PageLoader />}><SubjectDetail /></Suspense>
+                  </ProtectedRoute>
+                } />
+                <Route path="mentor-requests" element={
+                  <Suspense fallback={<PageLoader />}><MentorRequests /></Suspense>
                 } />
                 <Route path="learning" element={
                   <ProtectedRoute roles={['student']}>

@@ -271,4 +271,24 @@ export const studyPlanApi = {
     api.get(`/predictions/study-plan/${studentId}`).then(r => r.data),
 };
 
+// ─── Mentors ──────────────────────────────────────────────
+export const mentorsApi = {
+  requests:        () =>
+    api.get('/mentors/requests').then(r => r.data),
+  myRequests:      () =>
+    api.get('/mentors/requests').then(r => r.data),
+  request:         (data: { subject: string; message?: string }) =>
+    api.post('/mentors/request', data).then(r => r.data),
+  accept:          (id: number, data: { scheduledAt?: string; notes?: string }) =>
+    api.put(`/mentors/requests/${id}/accept`, data).then(r => r.data),
+  decline:         (id: number) =>
+    api.put(`/mentors/requests/${id}/decline`).then(r => r.data),
+  completeSession: (sessionId: number) =>
+    api.put(`/mentors/sessions/${sessionId}/complete`).then(r => r.data),
+  rate:            (sessionId: number, data: { rating: number; comment?: string }) =>
+    api.post(`/mentors/sessions/${sessionId}/rate`, data).then(r => r.data),
+  stats:           () =>
+    api.get('/mentors/stats').then(r => r.data),
+};
+
 export default api;

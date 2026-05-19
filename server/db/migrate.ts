@@ -372,5 +372,47 @@ export async function runMigrations() {
     CREATE INDEX IF NOT EXISTS announcements_class_idx ON announcements(class_id);
   `);
 
+  // Mentor system
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS mentor_requests (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      subject TEXT NOT NULL,
+      message TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS mr_student_idx ON mentor_requests(student_id);
+    CREATE INDEX IF NOT EXISTS mr_status_idx ON mentor_requests(status);
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS mentor_sessions (
+      id SERIAL PRIMARY KEY,
+      request_id INTEGER NOT NULL REFERENCES mentor_requests(id),
+      mentor_id INTEGER NOT NULL REFERENCES users(id),
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      scheduled_at TIMESTAMP,
+      notes TEXT,
+      is_completed BOOLEAN NOT NULL DEFAULT false,
+      completed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS mentor_ratings (
+      id SERIAL PRIMARY KEY,
+      session_id INTEGER NOT NULL REFERENCES mentor_sessions(id),
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      mentor_id INTEGER NOT NULL REFERENCES users(id),
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS mentor_rating_session_unique ON mentor_ratings(session_id);
+  `);
+
   console.log('Migrations completed successfully!');
 }
