@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { lmsApi, assessmentsApi, mentorsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -7,7 +7,7 @@ import {
   Activity, Monitor, Music, ArrowLeft, CheckCircle, Bookmark,
   BookmarkCheck, ExternalLink, Clock, ChevronDown, ChevronRight,
   ClipboardList, Play, FileText, Link2, Video, Users, Star, X, Save,
-  AlertCircle, MessageCircle,
+  AlertCircle, MessageCircle, GraduationCap,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -35,23 +35,198 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   return (
     <div className="flex gap-1">
       {[1, 2, 3, 4, 5].map(i => (
-        <button
-          key={i}
-          type="button"
-          onMouseEnter={() => setHover(i)}
-          onMouseLeave={() => setHover(0)}
-          onClick={() => onChange(i)}
-          className="transition-transform hover:scale-110"
-        >
-          <Star
-            size={28}
-            className={clsx(
-              'transition-colors',
-              (hover || value) >= i ? 'text-amber-400 fill-amber-400' : 'text-slate-200'
-            )}
-          />
+        <button key={i} type="button" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)} onClick={() => onChange(i)} className="transition-transform hover:scale-110">
+          <Star size={28} className={clsx('transition-colors', (hover || value) >= i ? 'text-amber-400 fill-amber-400' : 'text-slate-200')} />
         </button>
       ))}
+    </div>
+  );
+}
+
+function getEmbedUrl(material: any): string {
+  const url = material.url ?? '';
+  if (!url) return '';
+  if (material.type === 'slides') {
+    if (url.includes('docs.google.com/presentation')) {
+      return url.replace(/\/(edit|view|present)(\?.*)?$/, '') + '/embed?start=false&loop=false&delayms=3000';
+    }
+    if (url.match(/\.(pptx|ppt|key|odp)$/i) || url.startsWith('/uploads/')) {
+      return `https://docs.google.com/viewer?url=${encodeURIComponent(window.location.origin + url)}&embedded=true`;
+    }
+  }
+  if (material.type === 'video') {
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+    if (yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0`;
+  }
+  return url;
+}
+
+function MaterialViewer({ material, isDone, onClose, onComplete, completing }: {
+  material: any;
+  isDone: boolean;
+  onClose: () => void;
+  onComplete: () => void;
+  completing: boolean;
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [sentinelVisible, setSentinelVisible] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
+
+  const isNote = material.type === 'note';
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      entries => { if (entries[0].isIntersecting) setSentinelVisible(true); },
+      { threshold: 0.5 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (sentinelVisible && isNote && !isDone && !justCompleted) {
+      setJustCompleted(true);
+      onComplete();
+    }
+  }, [sentinelVisible, isNote, isDone, justCompleted, onComplete]);
+
+  const embedUrl = getEmbedUrl(material);
+  const canComplete = !isDone && !justCompleted;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col animate-fade-in" style={{ maxHeight: '92vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0">
+          <span className={clsx('px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0', TYPE_META[material.type]?.color ?? 'bg-slate-100 text-slate-600')}>
+            {TYPE_META[material.type]?.label ?? material.type}
+          </span>
+          <h2 className="font-bold text-slate-900 flex-1 min-w-0 truncate">{material.title}</h2>
+          {(isDone || justCompleted) && (
+            <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold flex-shrink-0">
+              <CheckCircle size={14} /> Completed
+            </span>
+          )}
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 flex-shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-5 space-y-4">
+            {material.description && (
+              <p className="text-sm text-slate-500 pb-4 border-b border-slate-100">{material.description}</p>
+            )}
+
+            {/* Note */}
+            {material.type === 'note' && (
+              <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4">
+                {material.content || <span className="text-slate-400 italic">No content</span>}
+              </pre>
+            )}
+
+            {/* PDF */}
+            {material.type === 'pdf' && material.url && (
+              <iframe
+                src={material.url}
+                title={material.title}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50"
+                style={{ height: '65vh' }}
+              />
+            )}
+
+            {/* Slides */}
+            {material.type === 'slides' && material.url && (
+              <iframe
+                src={embedUrl}
+                title={material.title}
+                className="w-full rounded-xl border border-slate-200"
+                style={{ height: '55vh' }}
+                allowFullScreen
+              />
+            )}
+
+            {/* Video */}
+            {material.type === 'video' && material.url && (
+              embedUrl.includes('youtube.com/embed') ? (
+                <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    src={embedUrl}
+                    title={material.title}
+                    className="absolute inset-0 w-full h-full"
+                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  />
+                </div>
+              ) : (
+                <video controls className="w-full rounded-xl bg-black" src={material.url}>
+                  Your browser does not support this video.
+                </video>
+              )
+            )}
+
+            {/* Link */}
+            {material.type === 'link' && material.url && (
+              <div className="text-center py-8">
+                <Link2 size={36} className="mx-auto mb-3 text-slate-300" />
+                <p className="text-slate-500 text-sm mb-4">This material is an external link.</p>
+                <a href={material.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 btn-primary"
+                  onClick={() => { if (canComplete) { setJustCompleted(true); onComplete(); } }}
+                >
+                  <ExternalLink size={14} /> Open Link
+                </a>
+              </div>
+            )}
+
+            {/* PDF with no URL */}
+            {material.type === 'pdf' && !material.url && (
+              <div className="text-center py-10 text-slate-400">
+                <FileText size={36} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No file attached to this material.</p>
+              </div>
+            )}
+
+            {/* Completion sentinel */}
+            <div ref={sentinelRef} className="pt-6 border-t border-slate-100 text-center space-y-3">
+              {isDone || justCompleted ? (
+                <div className="flex items-center justify-center gap-2 text-emerald-600 font-semibold py-2">
+                  <CheckCircle size={20} />
+                  <span>You've completed this material!</span>
+                </div>
+              ) : isNote ? (
+                <p className="text-xs text-slate-400 italic py-2">
+                  {sentinelVisible ? '✓ Marking as completed…' : 'Scroll to the bottom to mark as completed'}
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-400">
+                    {sentinelVisible ? 'Ready to mark as completed!' : 'Scroll down after reviewing to mark as completed'}
+                  </p>
+                  <button
+                    onClick={() => { setJustCompleted(true); onComplete(); }}
+                    disabled={completing || !sentinelVisible}
+                    className={clsx(
+                      'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all',
+                      sentinelVisible
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:shadow-md'
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    )}
+                  >
+                    <CheckCircle size={16} />
+                    {completing ? 'Saving…' : 'Mark as Completed'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -59,7 +234,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
 export default function SubjectDetail() {
   const { subject } = useParams<{ subject: string }>();
   const navigate = useNavigate();
-  const meta = SUBJECT_META[subject ?? ''] ?? { label: subject, icon: BookOpen, color: 'text-primary-600', gradient: 'from-primary-500 to-indigo-600' };
+  const meta = SUBJECT_META[subject ?? ''] ?? { label: subject ?? '', icon: GraduationCap, color: 'text-primary-600', gradient: 'from-primary-500 to-indigo-600' };
   const Icon = meta.icon;
 
   const [tab, setTab] = useState<'materials' | 'assessments'>('materials');
@@ -71,7 +246,8 @@ export default function SubjectDetail() {
   const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  // Mentor request modal
+  const [viewingMaterial, setViewingMaterial] = useState<any>(null);
+
   const [showMentorModal, setShowMentorModal] = useState(false);
   const [mentorMessage, setMentorMessage] = useState('');
   const [mentorLoading, setMentorLoading] = useState(false);
@@ -108,11 +284,8 @@ export default function SubjectDetail() {
   const progressMap = new Map(progress.map((p: any) => [p.materialId, p]));
   const completed = materials.filter(m => progressMap.get(m.id)?.completedAt).length;
   const pct = materials.length ? Math.round((completed / materials.length) * 100) : 0;
-
   const hasPendingRequest = myRequests.some(r => r.status === 'pending' || r.status === 'accepted');
-
-  const getMaterialsForTopic = (topicId: number) =>
-    materials.filter(m => m.topicId === topicId);
+  const getMaterialsForTopic = (topicId: number) => materials.filter(m => m.topicId === topicId);
 
   const toggleTopic = (id: number) => {
     setExpandedTopics(prev => {
@@ -133,6 +306,15 @@ export default function SubjectDetail() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const openMaterial = (m: any) => {
+    if (m.type === 'link' && m.url) {
+      window.open(m.url, '_blank', 'noopener,noreferrer');
+      if (!progressMap.get(m.id)?.completedAt) handleAction(m.id, 'complete');
+      return;
+    }
+    setViewingMaterial(m);
   };
 
   const handleMentorRequest = async (e: React.FormEvent) => {
@@ -157,10 +339,7 @@ export default function SubjectDetail() {
     <div className="space-y-5">
       {/* Back + Header */}
       <div>
-        <button
-          onClick={() => navigate('/subjects')}
-          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3 transition-colors"
-        >
+        <button onClick={() => navigate('/subjects')} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3 transition-colors">
           <ArrowLeft size={15} /> Back to Subjects
         </button>
 
@@ -194,21 +373,16 @@ export default function SubjectDetail() {
           </button>
         </div>
 
-        {/* Progress bar */}
         {materials.length > 0 && (
           <div className="mt-4 card p-3 flex items-center gap-3">
             <div className="flex-1 bg-slate-100 rounded-full h-2">
-              <div
-                className={clsx('h-2 rounded-full bg-gradient-to-r transition-all', meta.gradient)}
-                style={{ width: `${pct}%` }}
-              />
+              <div className={clsx('h-2 rounded-full bg-gradient-to-r transition-all', meta.gradient)} style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs font-bold text-slate-600 w-20 text-right">{completed}/{materials.length} lessons</span>
           </div>
         )}
       </div>
 
-      {/* Active mentor request banner */}
       {hasPendingRequest && (
         <div className="bg-primary-50 border border-primary-200 rounded-xl p-3 flex items-center gap-3">
           <MessageCircle size={16} className="text-primary-600 flex-shrink-0" />
@@ -220,16 +394,14 @@ export default function SubjectDetail() {
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-slate-100 pb-0">
+      <div className="flex gap-1 border-b border-slate-100">
         {(['materials', 'assessments'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={clsx(
               'px-4 py-2 text-sm font-semibold capitalize rounded-t-lg border-b-2 transition-all',
-              tab === t
-                ? 'border-primary-500 text-primary-600 bg-primary-50'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              tab === t ? 'border-primary-500 text-primary-600 bg-primary-50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             )}
           >
             {t === 'materials' ? `Materials (${materials.length})` : `Assessments (${assessments.length})`}
@@ -282,55 +454,56 @@ export default function SubjectDetail() {
                       const isBookmarked = !!prog?.isBookmarked;
                       const typeMeta = TYPE_META[m.type] ?? TYPE_META.note;
                       const TypeIcon = typeMeta.icon;
-                      const isLoading = actionLoading === m.id;
+                      const isLoadingAction = actionLoading === m.id;
+                      const hasContent = m.url || m.content;
 
                       return (
-                        <div key={m.id} className={clsx('px-4 py-3 flex items-start gap-3 group transition-colors', isDone ? 'bg-emerald-50/30' : 'hover:bg-slate-50')}>
+                        <div
+                          key={m.id}
+                          className={clsx(
+                            'px-4 py-3 flex items-start gap-3 transition-colors',
+                            isDone ? 'bg-emerald-50/30' : 'hover:bg-slate-50',
+                            hasContent && 'cursor-pointer'
+                          )}
+                          onClick={() => hasContent && openMaterial(m)}
+                        >
                           <div className="mt-0.5 flex-shrink-0">
                             {isDone
                               ? <CheckCircle size={17} className="text-emerald-500" />
                               : <div className="w-[17px] h-[17px] rounded-full border-2 border-slate-200" />
                             }
                           </div>
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={clsx('flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', typeMeta.color)}>
                                 <TypeIcon size={11} /> {typeMeta.label}
                               </span>
                               <span className="text-sm font-semibold text-slate-800">{m.title}</span>
+                              {hasContent && (
+                                <span className="text-xs text-primary-500 font-medium">Tap to open →</span>
+                              )}
                             </div>
                             {m.description && <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>}
-                            {m.content && m.type === 'note' && (
-                              <p className="text-xs text-slate-600 mt-1.5 bg-slate-50 rounded-lg p-2 line-clamp-3 font-mono">{m.content}</p>
-                            )}
                             {m.estimatedMins && (
                               <div className="flex items-center gap-1 mt-1 text-xs text-slate-400">
                                 <Clock size={11} /> {m.estimatedMins} min
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {m.url && (
-                              <button onClick={() => window.open(m.url, '_blank')} className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-all">
-                                <ExternalLink size={13} />
-                              </button>
-                            )}
+
+                          <div
+                            className="flex items-center gap-1 flex-shrink-0"
+                            onClick={e => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => handleAction(m.id, isBookmarked ? 'unbookmark' : 'bookmark')}
-                              disabled={isLoading}
-                              className={clsx('p-1.5 rounded-lg transition-all', isBookmarked ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50')}
+                              disabled={isLoadingAction}
+                              className={clsx('p-1.5 rounded-lg transition-all', isBookmarked ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-500 hover:bg-amber-50')}
+                              title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
                             >
                               {isBookmarked ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
                             </button>
-                            {!isDone && (
-                              <button
-                                onClick={() => handleAction(m.id, 'complete')}
-                                disabled={isLoading}
-                                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-50"
-                              >
-                                {isLoading ? '...' : 'Done'}
-                              </button>
-                            )}
                           </div>
                         </div>
                       );
@@ -366,13 +539,24 @@ export default function SubjectDetail() {
               </div>
               <Link
                 to={`/assessments/${a.id}/take`}
-                className={clsx('px-3 py-1.5 rounded-xl text-sm font-semibold transition-all', 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:shadow-md')}
+                className="px-3 py-1.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:shadow-md transition-all"
               >
                 Start
               </Link>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Material Viewer */}
+      {viewingMaterial && (
+        <MaterialViewer
+          material={viewingMaterial}
+          isDone={!!progressMap.get(viewingMaterial.id)?.completedAt}
+          completing={actionLoading === viewingMaterial.id}
+          onClose={() => setViewingMaterial(null)}
+          onComplete={() => handleAction(viewingMaterial.id, 'complete')}
+        />
       )}
 
       {/* Mentor Request Modal */}
@@ -390,9 +574,7 @@ export default function SubjectDetail() {
                   <p className="text-xs text-slate-400">{meta.label}</p>
                 </div>
               </div>
-              <button onClick={() => setShowMentorModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
-                <X size={16} />
-              </button>
+              <button onClick={() => setShowMentorModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={16} /></button>
             </div>
 
             {mentorSuccess ? (
@@ -412,13 +594,7 @@ export default function SubjectDetail() {
                 </div>
                 <div>
                   <label className="label">What do you need help with? <span className="text-slate-400 font-normal">(optional)</span></label>
-                  <textarea
-                    value={mentorMessage}
-                    onChange={e => setMentorMessage(e.target.value)}
-                    className="input resize-none"
-                    rows={4}
-                    placeholder={`e.g. "I'm struggling with quadratic equations and need extra practice..."`}
-                  />
+                  <textarea value={mentorMessage} onChange={e => setMentorMessage(e.target.value)} className="input resize-none" rows={4} placeholder={`e.g. "I'm struggling with quadratic equations..."`} />
                 </div>
                 {mentorError && (
                   <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 rounded-xl p-3">
