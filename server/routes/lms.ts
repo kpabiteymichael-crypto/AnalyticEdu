@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from '../db/index';
 import {
@@ -9,11 +10,11 @@ import {
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const UPLOADS_DIR = path.join(process.cwd(), 'public/uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: path.join(__dirname, '../../public/uploads'),
+  destination: UPLOADS_DIR,
   filename: (_req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     cb(null, `${Date.now()}_${safe}`);
@@ -41,8 +42,15 @@ const router = Router();
 
 router.post('/upload', authenticate, authorize('admin', 'teacher'), upload.single('file'), (req: AuthRequest, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded or file type not allowed' });
-  const url = `/uploads/${req.file.filename}`;
+  const url = `/api/lms/file/${req.file.filename}`;
   return res.json({ url, filename: req.file.originalname, size: req.file.size });
+});
+
+router.get('/file/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(UPLOADS_DIR, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  return res.sendFile(filePath);
 });
 
 // ─── Topics ──────────────────────────────────────────────

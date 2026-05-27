@@ -44,19 +44,28 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-function getEmbedUrl(material: any): string {
-  const url = material.url ?? '';
+function toApiUrl(url: string): string {
   if (!url) return '';
+  if (url.startsWith('/uploads/')) {
+    return `/api/lms/file/${url.replace('/uploads/', '')}`;
+  }
+  return url;
+}
+
+function getEmbedUrl(material: any): string {
+  const raw = material.url ?? '';
+  if (!raw) return '';
+  const url = toApiUrl(raw);
   if (material.type === 'slides') {
-    if (url.includes('docs.google.com/presentation')) {
-      return url.replace(/\/(edit|view|present)(\?.*)?$/, '') + '/embed?start=false&loop=false&delayms=3000';
+    if (raw.includes('docs.google.com/presentation')) {
+      return raw.replace(/\/(edit|view|present)(\?.*)?$/, '') + '/embed?start=false&loop=false&delayms=3000';
     }
-    if (url.match(/\.(pptx|ppt|key|odp)$/i) || url.startsWith('/uploads/')) {
+    if (raw.match(/\.(pptx|ppt|key|odp)$/i) || raw.startsWith('/uploads/') || raw.startsWith('/api/lms/file/')) {
       return `https://docs.google.com/viewer?url=${encodeURIComponent(window.location.origin + url)}&embedded=true`;
     }
   }
   if (material.type === 'video') {
-    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+    const yt = raw.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
     if (yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0`;
   }
   return url;
@@ -134,7 +143,7 @@ function MaterialViewer({ material, isDone, onClose, onComplete, completing }: {
             {/* PDF */}
             {material.type === 'pdf' && material.url && (
               <iframe
-                src={material.url}
+                src={toApiUrl(material.url)}
                 title={material.title}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50"
                 style={{ height: '65vh' }}
