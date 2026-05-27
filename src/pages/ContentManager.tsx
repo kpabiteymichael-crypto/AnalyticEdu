@@ -14,7 +14,7 @@ const TYPES = [
   { value: 'pdf',    label: 'PDF / File',     icon: <FileText size={14} /> },
   { value: 'video',  label: 'Video (URL)',    icon: <Video size={14} /> },
   { value: 'link',   label: 'External link',  icon: <Link2 size={14} /> },
-  { value: 'slides', label: 'Slides (URL)',   icon: <Play size={14} /> },
+  { value: 'slides', label: 'Slides / Upload', icon: <Play size={14} /> },
 ];
 
 const TYPE_COLOR: Record<string, string> = {
@@ -578,26 +578,83 @@ export default function ContentManager() {
                       }}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 text-center">— or paste a URL instead —</p>
-                  <input
-                    value={materialForm.url}
-                    onChange={e => { setMaterialForm((p: any) => ({ ...p, url: e.target.value })); setUploadedFileName(''); }}
-                    className="input"
-                    type="url"
-                    placeholder="https://example.com/file.pdf"
-                  />
+                  {!uploadedFileName && (
+                    <>
+                      <p className="text-xs text-slate-400 text-center">— or paste a URL instead —</p>
+                      <input
+                        value={materialForm.url}
+                        onChange={e => setMaterialForm((p: any) => ({ ...p, url: e.target.value }))}
+                        className="input"
+                        placeholder="https://example.com/file.pdf"
+                      />
+                    </>
+                  )}
                 </div>
               )}
 
-              {/* ── URL for video / link / slides ── */}
-              {(materialForm.type === 'video' || materialForm.type === 'link' || materialForm.type === 'slides') && (
+              {/* ── Slides upload ── */}
+              {materialForm.type === 'slides' && (
+                <div className="space-y-2">
+                  <label className="label">Slides File</label>
+                  <div
+                    className={clsx(
+                      'border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all',
+                      uploading ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-300 hover:bg-slate-50'
+                    )}
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-2 text-primary-600">
+                        <Loader2 size={24} className="animate-spin" />
+                        <p className="text-sm font-medium">Uploading…</p>
+                      </div>
+                    ) : uploadedFileName ? (
+                      <div className="flex flex-col items-center gap-1 text-emerald-600">
+                        <Play size={24} />
+                        <p className="text-sm font-semibold">{uploadedFileName}</p>
+                        <p className="text-xs text-slate-400">Click to replace</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-slate-400">
+                        <Upload size={24} />
+                        <p className="text-sm font-medium text-slate-600">Click to upload slides</p>
+                        <p className="text-xs">PDF, PPTX, PPT, KEY · max 20 MB</p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.pptx,.ppt,.key,.odp"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                  {!uploadedFileName && (
+                    <>
+                      <p className="text-xs text-slate-400 text-center">— or paste a URL instead —</p>
+                      <input
+                        value={materialForm.url}
+                        onChange={e => setMaterialForm((p: any) => ({ ...p, url: e.target.value }))}
+                        className="input"
+                        placeholder="https://docs.google.com/presentation/..."
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── URL for video / link ── */}
+              {(materialForm.type === 'video' || materialForm.type === 'link') && (
                 <div>
                   <label className="label">URL</label>
                   <input
                     value={materialForm.url}
                     onChange={e => setMaterialForm((p: any) => ({ ...p, url: e.target.value }))}
                     className="input"
-                    type="url"
                     placeholder="https://..."
                   />
                 </div>

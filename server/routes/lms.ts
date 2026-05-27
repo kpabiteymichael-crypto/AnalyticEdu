@@ -23,8 +23,15 @@ const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = ['application/pdf', 'text/plain', 'text/markdown', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-    cb(null, allowed.includes(file.mimetype));
+    const allowed = [
+      'application/pdf', 'text/plain', 'text/markdown',
+      'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.oasis.opendocument.presentation',
+      'application/x-iwork-keynote-sffkey',
+    ];
+    cb(null, allowed.includes(file.mimetype) || file.originalname.match(/\.(pptx|ppt|key|odp)$/i) !== null);
   },
 });
 
