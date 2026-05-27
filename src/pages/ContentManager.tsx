@@ -1,19 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { lmsApi, teamsApi, subjectAssignmentsApi, settingsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   BookOpen, Plus, Trash2, Edit3, Eye, EyeOff, Save, X,
-  FileText, Video, Link2, Play, Globe, GripVertical,
+  FileText, Video, Link2, Play, Globe, GripVertical, Upload, Loader2,
 } from 'lucide-react';
 import clsx from 'clsx';
 
 type SubjectEntry = { key: string; label: string };
+
 const TYPES = [
-  { value: 'note',   label: 'Note (inline text)', icon: <FileText size={14} /> },
-  { value: 'pdf',    label: 'PDF document',        icon: <FileText size={14} /> },
-  { value: 'video',  label: 'Video (URL)',          icon: <Video size={14} /> },
-  { value: 'link',   label: 'External link',        icon: <Link2 size={14} /> },
-  { value: 'slides', label: 'Slides (URL)',          icon: <Play size={14} /> },
+  { value: 'note',   label: 'Note (text)',    icon: <FileText size={14} /> },
+  { value: 'pdf',    label: 'PDF / File',     icon: <FileText size={14} /> },
+  { value: 'video',  label: 'Video (URL)',    icon: <Video size={14} /> },
+  { value: 'link',   label: 'External link',  icon: <Link2 size={14} /> },
+  { value: 'slides', label: 'Slides (URL)',   icon: <Play size={14} /> },
 ];
 
 const TYPE_COLOR: Record<string, string> = {
@@ -39,13 +40,21 @@ export default function ContentManager() {
   const [loading, setLoading] = useState(true);
 
   const [showTopicForm, setShowTopicForm] = useState(false);
-  const [topicForm, setTopicForm] = useState(emptyTopic('math'));
+  const [topicForm, setTopicForm] = useState(emptyTopic(''));
   const [editingTopic, setEditingTopic] = useState<any>(null);
 
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [materialForm, setMaterialForm] = useState<any>(emptyMaterial());
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [inlineTopicMode, setInlineTopicMode] = useState(false);
+  const [inlineTopicForm, setInlineTopicForm] = useState({ name: '', description: '' });
+  const [creatingTopic, setCreatingTopic] = useState(false);
 
   async function reload() {
     try {
@@ -115,6 +124,40 @@ export default function ContentManager() {
     await reload();
   };
 
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const { url, filename } = await lmsApi.uploadFile(file);
+      setMaterialForm((p: any) => ({ ...p, url }));
+      setUploadedFileName(filename);
+    } catch (e) {
+      console.error(e);
+      alert('Upload failed. Make sure the file is a PDF, text, or image under 20 MB.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCreateInlineTopic = async () => {
+    if (!inlineTopicForm.name.trim()) return;
+    setCreatingTopic(true);
+    try {
+      const created = await lmsApi.createTopic({
+        subject: selectedSubject,
+        name: inlineTopicForm.name.trim(),
+        description: inlineTopicForm.description.trim(),
+      });
+      await reload();
+      setMaterialForm((p: any) => ({ ...p, topicId: created.id }));
+      setInlineTopicMode(false);
+      setInlineTopicForm({ name: '', description: '' });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreatingTopic(false);
+    }
+  };
+
   const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -134,6 +177,9 @@ export default function ContentManager() {
       setShowMaterialForm(false);
       setEditingMaterial(null);
       setMaterialForm(emptyMaterial());
+      setUploadedFileName('');
+      setInlineTopicMode(false);
+      setInlineTopicForm({ name: '', description: '' });
     } catch (e) { console.error(e); }
     setSaving(false);
   };
@@ -156,6 +202,9 @@ export default function ContentManager() {
       isPublished: m.isPublished, estimatedMins: m.estimatedMins ?? 10,
       classId: m.classId ?? '',
     });
+    setUploadedFileName('');
+    setInlineTopicMode(false);
+    setInlineTopicForm({ name: '', description: '' });
     setEditingMaterial(m);
     setShowMaterialForm(true);
   };
@@ -164,6 +213,16 @@ export default function ContentManager() {
     setTopicForm({ subject: t.subject, name: t.name, description: t.description ?? '' });
     setEditingTopic(t);
     setShowTopicForm(true);
+  };
+
+  const openNewMaterial = () => {
+    const firstTopic = filteredTopics[0];
+    setMaterialForm(emptyMaterial(firstTopic?.id ?? 0));
+    setUploadedFileName('');
+    setInlineTopicMode(false);
+    setInlineTopicForm({ name: '', description: '' });
+    setEditingMaterial(null);
+    setShowMaterialForm(true);
   };
 
   if (loading) return <LoadingSpinner text="Loading content manager..." />;
@@ -185,15 +244,7 @@ export default function ContentManager() {
               <Plus size={16} /> New Topic
             </button>
           ) : (
-            <button
-              onClick={() => {
-                const firstTopic = filteredTopics[0];
-                setMaterialForm(emptyMaterial(firstTopic?.id ?? 0));
-                setEditingMaterial(null);
-                setShowMaterialForm(true);
-              }}
-              className="btn-primary flex items-center gap-2"
-            >
+            <button onClick={openNewMaterial} className="btn-primary flex items-center gap-2">
               <Plus size={16} /> New Material
             </button>
           )}
@@ -285,8 +336,7 @@ export default function ContentManager() {
             <div className="empty-state">
               <FileText size={36} className="mx-auto mb-3 text-slate-300" />
               <p className="text-slate-500 font-medium">No materials for {selectedSubject} yet.</p>
-              <button onClick={() => { const t = filteredTopics[0]; setMaterialForm(emptyMaterial(t?.id ?? 0)); setEditingMaterial(null); setShowMaterialForm(true); }}
-                className="mt-3 btn-primary text-sm">Add First Material</button>
+              <button onClick={openNewMaterial} className="mt-3 btn-primary text-sm">Add First Material</button>
             </div>
           ) : filteredMaterials.map(m => (
             <div key={m.id} className={clsx('card p-4 flex items-start gap-3 transition-all', !m.isPublished && 'opacity-70 border-dashed')}>
@@ -373,25 +423,95 @@ export default function ContentManager() {
               <button onClick={() => setShowMaterialForm(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={16} /></button>
             </div>
             <form onSubmit={handleSaveMaterial} className="p-6 space-y-4">
+
+              {/* ── Topic selector with inline-create ── */}
               <div>
-                <label className="label">Topic</label>
-                <select value={materialForm.topicId} onChange={e => setMaterialForm((p: any) => ({ ...p, topicId: e.target.value }))} className="input" required>
-                  <option value="">Select a topic...</option>
-                  {topics.map(t => <option key={t.id} value={t.id}>{t.subject} — {t.name}</option>)}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label mb-0">Topic</label>
+                  {!inlineTopicMode && (
+                    <button
+                      type="button"
+                      onClick={() => setInlineTopicMode(true)}
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+                    >
+                      <Plus size={12} /> Create new topic
+                    </button>
+                  )}
+                </div>
+
+                {inlineTopicMode ? (
+                  <div className="border border-primary-200 bg-primary-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide">New Topic</p>
+                    <input
+                      value={inlineTopicForm.name}
+                      onChange={e => setInlineTopicForm(p => ({ ...p, name: e.target.value }))}
+                      className="input"
+                      placeholder="Topic name (required)"
+                      autoFocus
+                    />
+                    <input
+                      value={inlineTopicForm.description}
+                      onChange={e => setInlineTopicForm(p => ({ ...p, description: e.target.value }))}
+                      className="input"
+                      placeholder="Description (optional)"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setInlineTopicMode(false); setInlineTopicForm({ name: '', description: '' }); }}
+                        className="flex-1 btn-secondary text-sm py-1.5"
+                      >Cancel</button>
+                      <button
+                        type="button"
+                        onClick={handleCreateInlineTopic}
+                        disabled={!inlineTopicForm.name.trim() || creatingTopic}
+                        className="flex-1 btn-primary text-sm py-1.5 flex items-center justify-center gap-1.5"
+                      >
+                        {creatingTopic ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                        {creatingTopic ? 'Creating...' : 'Create & Select'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <select
+                    value={materialForm.topicId}
+                    onChange={e => setMaterialForm((p: any) => ({ ...p, topicId: e.target.value }))}
+                    className="input"
+                    required
+                  >
+                    <option value="">Select a topic...</option>
+                    {topics
+                      .filter(t => t.subject === selectedSubject)
+                      .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {topics.filter(t => t.subject !== selectedSubject).length > 0 && (
+                      <>
+                        <option disabled>── Other subjects ──</option>
+                        {topics
+                          .filter(t => t.subject !== selectedSubject)
+                          .map(t => <option key={t.id} value={t.id}>{t.subject} — {t.name}</option>)}
+                      </>
+                    )}
+                  </select>
+                )}
               </div>
+
               <div>
                 <label className="label">Title</label>
                 <input value={materialForm.title} onChange={e => setMaterialForm((p: any) => ({ ...p, title: e.target.value }))} className="input" placeholder="Material title" required />
               </div>
+
+              {/* ── Type selector ── */}
               <div>
                 <label className="label">Type</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {TYPES.map(t => (
                     <button
                       key={t.value}
                       type="button"
-                      onClick={() => setMaterialForm((p: any) => ({ ...p, type: t.value }))}
+                      onClick={() => {
+                        setMaterialForm((p: any) => ({ ...p, type: t.value, url: '' }));
+                        setUploadedFileName('');
+                      }}
                       className={clsx(
                         'flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all',
                         materialForm.type === t.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -402,22 +522,92 @@ export default function ContentManager() {
                   ))}
                 </div>
               </div>
-              {materialForm.type !== 'note' && (
-                <div>
-                  <label className="label">URL</label>
-                  <input value={materialForm.url} onChange={e => setMaterialForm((p: any) => ({ ...p, url: e.target.value }))} className="input" type="url" placeholder="https://..." />
-                </div>
-              )}
+
+              {/* ── Note content ── */}
               {materialForm.type === 'note' && (
                 <div>
                   <label className="label">Content</label>
-                  <textarea value={materialForm.content} onChange={e => setMaterialForm((p: any) => ({ ...p, content: e.target.value }))} className="input resize-none font-mono text-sm" rows={5} placeholder="Write your note content here..." />
+                  <textarea
+                    value={materialForm.content}
+                    onChange={e => setMaterialForm((p: any) => ({ ...p, content: e.target.value }))}
+                    className="input resize-none font-mono text-sm"
+                    rows={6}
+                    placeholder="Write your note content here..."
+                  />
                 </div>
               )}
+
+              {/* ── PDF / File upload ── */}
+              {materialForm.type === 'pdf' && (
+                <div className="space-y-2">
+                  <label className="label">File</label>
+                  <div
+                    className={clsx(
+                      'border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all',
+                      uploading ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-300 hover:bg-slate-50'
+                    )}
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-2 text-primary-600">
+                        <Loader2 size={24} className="animate-spin" />
+                        <p className="text-sm font-medium">Uploading…</p>
+                      </div>
+                    ) : uploadedFileName ? (
+                      <div className="flex flex-col items-center gap-1 text-emerald-600">
+                        <FileText size={24} />
+                        <p className="text-sm font-semibold">{uploadedFileName}</p>
+                        <p className="text-xs text-slate-400">Click to replace</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-slate-400">
+                        <Upload size={24} />
+                        <p className="text-sm font-medium text-slate-600">Click to upload PDF or file</p>
+                        <p className="text-xs">PDF, TXT, images · max 20 MB</p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.txt,.md,.png,.jpg,.jpeg,.gif,.webp"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 text-center">— or paste a URL instead —</p>
+                  <input
+                    value={materialForm.url}
+                    onChange={e => { setMaterialForm((p: any) => ({ ...p, url: e.target.value })); setUploadedFileName(''); }}
+                    className="input"
+                    type="url"
+                    placeholder="https://example.com/file.pdf"
+                  />
+                </div>
+              )}
+
+              {/* ── URL for video / link / slides ── */}
+              {(materialForm.type === 'video' || materialForm.type === 'link' || materialForm.type === 'slides') && (
+                <div>
+                  <label className="label">URL</label>
+                  <input
+                    value={materialForm.url}
+                    onChange={e => setMaterialForm((p: any) => ({ ...p, url: e.target.value }))}
+                    className="input"
+                    type="url"
+                    placeholder="https://..."
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="label">Description <span className="text-slate-400 font-normal">(optional)</span></label>
                 <input value={materialForm.description} onChange={e => setMaterialForm((p: any) => ({ ...p, description: e.target.value }))} className="input" placeholder="Brief description..." />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Estimated Time (min)</label>
@@ -431,6 +621,7 @@ export default function ContentManager() {
                   </select>
                 </div>
               </div>
+
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" checked={materialForm.isPublished} onChange={e => setMaterialForm((p: any) => ({ ...p, isPublished: e.target.checked }))} className="w-4 h-4 accent-primary-600" />
@@ -438,9 +629,14 @@ export default function ContentManager() {
                   <span className="text-sm font-medium text-slate-700">Publish immediately</span>
                 </label>
               </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowMaterialForm(false)} className="flex-1 btn-secondary">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 btn-primary flex items-center justify-center gap-2">
+                <button
+                  type="submit"
+                  disabled={saving || uploading || (inlineTopicMode)}
+                  className="flex-1 btn-primary flex items-center justify-center gap-2"
+                >
                   <Save size={14} /> {saving ? 'Saving...' : 'Save Material'}
                 </button>
               </div>

@@ -181,6 +181,9 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/subject-assignments', subjectAssignmentRoutes);
 
+// ── Uploaded files (always served) ───────────────────────────────────────────
+app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
+
 // ── Static files in production ───────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(process.cwd(), 'dist/client');

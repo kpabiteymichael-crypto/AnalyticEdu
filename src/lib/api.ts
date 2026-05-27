@@ -255,6 +255,11 @@ export const lmsApi = {
     api.put(`/lms/materials/${id}`, data).then(r => r.data),
   deleteMaterial: (id: number) =>
     api.delete(`/lms/materials/${id}`).then(r => r.data),
+  uploadFile:     (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/lms/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data as { url: string; filename: string; size: number });
+  },
   myProgress:     () =>
     api.get('/lms/my-progress').then(r => r.data),
   markProgress:   (materialId: number, action: 'complete' | 'bookmark' | 'unbookmark', timeSpentMins?: number) =>

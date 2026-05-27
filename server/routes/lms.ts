@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { db } from '../db/index';
 import {
   topics, learningMaterials, lessonProgress, students, activityLogs,
@@ -6,7 +9,34 @@ import {
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const storage = multer.diskStorage({
+  destination: path.join(__dirname, '../../public/uploads'),
+  filename: (_req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}_${safe}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['application/pdf', 'text/plain', 'text/markdown', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
 const router = Router();
+
+// ─── File Upload ─────────────────────────────────────────
+
+router.post('/upload', authenticate, authorize('admin', 'teacher'), upload.single('file'), (req: AuthRequest, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded or file type not allowed' });
+  const url = `/uploads/${req.file.filename}`;
+  return res.json({ url, filename: req.file.originalname, size: req.file.size });
+});
 
 // ─── Topics ──────────────────────────────────────────────
 
