@@ -68,7 +68,7 @@ export default function SubjectHub() {
   const getSubjectStats = (key: string) => {
     const subMaterials = materials.filter((m: any) => (m.subject ?? m.topicSubject) === key);
     const subAssessments = assessments.filter((a: any) => a.subject === key && a.status === 'published');
-    const done = subMaterials.filter((m: any) => progressMap.get(m.id)?.isCompleted).length;
+    const done = subMaterials.filter((m: any) => !!progressMap.get(m.id)?.completedAt).length;
     return {
       materials: subMaterials.length,
       assessments: subAssessments.length,
