@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { lmsApi, assessmentsApi, mentorsApi } from '../lib/api';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -95,8 +96,8 @@ function MaterialViewer({ material, isDone, onClose, onComplete, completing }: {
   const embedUrl = getEmbedUrl(material);
   const canComplete = !isDone && !justCompleted;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col animate-fade-in" style={{ maxHeight: '92vh' }}>
 
@@ -227,7 +228,8 @@ function MaterialViewer({ material, isDone, onClose, onComplete, completing }: {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -465,7 +467,7 @@ export default function SubjectDetail() {
                             isDone ? 'bg-emerald-50/30' : 'hover:bg-slate-50',
                             hasContent && 'cursor-pointer'
                           )}
-                          onClick={() => hasContent && openMaterial(m)}
+                          onClick={(e) => { e.stopPropagation(); if (hasContent) openMaterial(m); }}
                         >
                           <div className="mt-0.5 flex-shrink-0">
                             {isDone
